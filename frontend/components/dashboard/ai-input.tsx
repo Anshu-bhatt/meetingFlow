@@ -8,7 +8,7 @@ import { Sparkles } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
 
 interface AIInputProps {
-  onExtract: (transcript: string) => void
+  onExtract: (transcript: string) => void | Promise<void>
   isLoading: boolean
 }
 

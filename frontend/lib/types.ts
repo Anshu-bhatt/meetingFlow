@@ -3,7 +3,7 @@ export interface Task {
   title: string
   assignee: string
   priority: "High" | "Medium" | "Low"
-  deadline: string
+  deadline: string | null
   completed: boolean
 }
 

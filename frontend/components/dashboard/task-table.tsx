@@ -74,6 +74,7 @@ export function TaskTable({ tasks, onToggleComplete, onDeleteTask }: TaskTablePr
                       <Checkbox
                         checked={task.completed}
                         onCheckedChange={() => onToggleComplete(task.id)}
+                        className="border-muted-foreground/70 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 data-[state=checked]:text-white"
                       />
                     </TableCell>
                     <TableCell>

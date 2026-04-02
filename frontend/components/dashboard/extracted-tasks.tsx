@@ -54,7 +54,7 @@ export function ExtractedTasks({ tasks, onUpdateTask, onDeleteTask, onSaveAll }:
                 onCheckedChange={(checked) => 
                   onUpdateTask(task.id, { completed: checked as boolean })
                 }
-                className="mt-0.5"
+                className="mt-0.5 border-muted-foreground/70 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 data-[state=checked]:text-white"
               />
               <span className={cn(
                 "text-sm leading-relaxed",
@@ -123,7 +123,7 @@ export function ExtractedTasks({ tasks, onUpdateTask, onDeleteTask, onSaveAll }:
                     mode="single"
                     selected={task.deadline ? new Date(task.deadline) : undefined}
                     onSelect={(date) => 
-                      onUpdateTask(task.id, { deadline: date?.toISOString() || "" })
+                      onUpdateTask(task.id, { deadline: date?.toISOString() ?? null })
                     }
                     initialFocus
                   />

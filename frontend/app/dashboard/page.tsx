@@ -52,12 +52,19 @@ export default function DashboardPage() {
   const [extractedTasks, setExtractedTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
+  const makeTaskFingerprint = useCallback((task: Pick<Task, "title" | "assignee" | "deadline">) => {
+    return `${task.title.trim().toLowerCase()}|${task.assignee.trim().toLowerCase()}|${task.deadline ?? ""}`
+  }, [])
+
   // Calculate stats
   const stats = {
     total: savedTasks.length,
     completed: savedTasks.filter(t => t.completed).length,
     pending: savedTasks.filter(t => !t.completed).length,
-    overdue: savedTasks.filter(t => !t.completed && new Date(t.deadline) < new Date()).length,
+    overdue: savedTasks.filter(t => {
+      if (t.completed || !t.deadline) return false
+      return new Date(t.deadline) < new Date()
+    }).length,
   }
 
   // Handle AI extraction
@@ -65,42 +72,66 @@ export default function DashboardPage() {
     setIsLoading(true)
 
     try {
-      const token = await getToken()
+      const endpoint = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/extract-tasks`
 
-      if (!token) {
-        throw new Error("You are not authenticated")
+      const callExtract = async (token?: string | null) => {
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        }
+
+        if (token) {
+          headers.Authorization = `Bearer ${token}`
+        }
+
+        return fetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ transcript }),
+        })
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/extract-tasks`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ transcript }),
+      // Avoid token requests when backend allows local unauthenticated mode.
+      let response = await callExtract()
+
+      if (response.status === 401 || response.status === 403) {
+        const token = await getToken().catch(() => null)
+        if (token) {
+          response = await callExtract(token)
         }
-      )
+      }
 
       if (!response.ok) {
-        throw new Error("Task extraction failed")
+        const errorData = await response.json().catch(() => ({} as { error?: string }))
+        throw new Error(errorData.error || "Task extraction failed")
       }
 
       const data: { tasks: Task[] } = await response.json()
-      setExtractedTasks(data.tasks)
+      const uniqueTasks = data.tasks.filter((task, index, list) => {
+        const key = makeTaskFingerprint(task)
+        return list.findIndex((candidate) => makeTaskFingerprint(candidate) === key) === index
+      })
 
-      toast.success(`${data.tasks.length} tasks extracted successfully!`, {
+      setExtractedTasks(uniqueTasks)
+
+      if (!uniqueTasks.length) {
+        toast.info("No clear tasks found", {
+          description: "Try adding more explicit action items, owners, and deadlines.",
+        })
+        return
+      }
+
+      toast.success(`${uniqueTasks.length} tasks extracted successfully!`, {
         description: "Review and customize tasks before saving.",
       })
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not extract tasks"
       toast.error("Could not extract tasks", {
-        description: "Please try again after signing in.",
+        description: message,
       })
     } finally {
       setIsLoading(false)
     }
-  }, [getToken])
+  }, [getToken, makeTaskFingerprint])
 
   // Update extracted task
   const handleUpdateExtracted = useCallback((id: string, updates: Partial<Task>) => {
@@ -117,12 +148,24 @@ export default function DashboardPage() {
 
   // Save all extracted tasks
   const handleSaveAll = useCallback(() => {
-    setSavedTasks(prev => [...extractedTasks, ...prev])
+    setSavedTasks(prev => {
+      const existingKeys = new Set(prev.map((task) => makeTaskFingerprint(task)))
+      const toAdd = extractedTasks.filter((task) => {
+        const key = makeTaskFingerprint(task)
+        if (existingKeys.has(key)) {
+          return false
+        }
+        existingKeys.add(key)
+        return true
+      })
+
+      return [...toAdd, ...prev]
+    })
     setExtractedTasks([])
     toast.success("All tasks saved!", {
       description: "Tasks have been added to your task list.",
     })
-  }, [extractedTasks])
+  }, [extractedTasks, makeTaskFingerprint])
 
   // Toggle task completion
   const handleToggleComplete = useCallback((id: string) => {

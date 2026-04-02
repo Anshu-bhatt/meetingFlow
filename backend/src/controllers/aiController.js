@@ -7,7 +7,7 @@ const normalizePriority = (priority) => {
 	return "Medium";
 };
 
-const toIsoDate = (value, fallbackDaysOffset = 3) => {
+const toIsoDate = (value) => {
 	if (typeof value === "string" && value.trim()) {
 		const parsed = new Date(value);
 		if (!Number.isNaN(parsed.getTime())) {
@@ -15,25 +15,32 @@ const toIsoDate = (value, fallbackDaysOffset = 3) => {
 		}
 	}
 
-	return new Date(
-		Date.now() + fallbackDaysOffset * 24 * 60 * 60 * 1000
-	).toISOString();
+	return null;
 };
 
-const normalizeTask = (task, index) => ({
+const normalizeTask = (task, index) => {
+	const rawTitle =
+		typeof task?.task === "string" && task.task.trim()
+			? task.task
+			: typeof task?.title === "string"
+			? task.title
+			: "";
+
+	return ({
 	id: `extracted-${Date.now()}-${index}`,
 	title:
-		typeof task?.task === "string" && task.task.trim()
-			? task.task.trim()
+		typeof rawTitle === "string" && rawTitle.trim()
+			? rawTitle.trim()
 			: "Follow up on meeting action item",
 	assignee:
 		typeof task?.assignee === "string" && task.assignee.trim()
 			? task.assignee.trim()
 			: "Unassigned",
 	priority: normalizePriority(task?.priority),
-	deadline: toIsoDate(task?.deadline, index + 3),
+	deadline: toIsoDate(task?.deadline),
 	completed: false,
-});
+	});
+};
 
 export const extractTasks = async (req, res) => {
 	try {
