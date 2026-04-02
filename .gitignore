@@ -1,0 +1,156 @@
+# v0 sandbox internal files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+next.user-config.*
+
+# ============================================================================
+# ENVIRONMENT & SECRETS
+# ============================================================================
+# Environment variables - NEVER commit .env files with secrets
+.env
+.env.local
+.env.*.local
+.env.production.local
+.env.development.local
+.env.test.local
+.env.staging
+.env.*.private
+*.pem
+*.key
+*.crt
+*.jks
+*.p12
+*.pfx
+
+# API Keys and Credentials
+.credentials
+credentials.json
+google-credentials.json
+firebase-key.json
+aws-credentials
+serviceAccountKey.json
+*-credentials.json
+**/credentials/**
+
+# ============================================================================
+# DEPENDENCIES
+# ============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+lerna-debug.log
+
+# ============================================================================
+# BUILD & DIST
+# ============================================================================
+.next/
+.nuxt/
+dist/
+build/
+out/
+coverage/
+.turbo/
+.cache/
+.vercel
+*.swp
+*.swo
+
+# ============================================================================
+# IDE & EDITOR
+# ============================================================================
+.vscode/
+.vscode-test
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
+*.sublime-workspace
+.project
+.settings/
+.classpath
+.c9/
+*.launch
+.vscode-test
+*.code-workspace
+.history/
+.ionide/
+
+# ============================================================================
+# RUNTIME & LOGS
+# ============================================================================
+logs/
+*.log
+npm-debug.log*
+lerna-debug.log*
+*.pem
+
+# ============================================================================
+# OS FILES
+# ============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ============================================================================
+# DATABASE
+# ============================================================================
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# ============================================================================
+# LOCAL DEVELOPMENT
+# ============================================================================
+.env.local
+.env.*.local
+.next/
+dist/
+build/
+.turbo/
+.cache/
+.env.backup
+
+# ============================================================================
+# TEMPORARY FILES
+# ============================================================================
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+*.old
+.tmp/
+.venv/
+venv/
+ENV/
+env/
+
+# ============================================================================
+# SPECIFIC FILES (Sensitive data)
+# ============================================================================
+/backend/.env
+/frontend/.env.local
+/frontend/.env.production.local
+/backend/.env.*.local
+*.key.json
+webhook-secret.txt
+client-secret.txt

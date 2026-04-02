@@ -1,0 +1,56 @@
+import type { Metadata } from 'next'
+import { Inter, Geist_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
+import { ClerkProvider } from '@clerk/nextjs'
+import { Toaster } from '@/components/ui/sonner'
+import './globals.css'
+
+const inter = Inter({ 
+  subsets: ["latin"],
+  variable: "--font-inter"
+});
+const geistMono = Geist_Mono({ 
+  subsets: ["latin"],
+  variable: "--font-mono"
+});
+
+export const metadata: Metadata = {
+  title: 'ActionFlow AI - Turn Meetings into Action',
+  description: 'AI-powered meeting task extraction and accountability system. Extract tasks, assign owners, and ensure nothing gets missed.',
+  generator: 'v0.app',
+  icons: {
+    icon: [
+      {
+        url: '/icon-light-32x32.png',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/icon-dark-32x32.png',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+    apple: '/apple-icon.png',
+  },
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <html lang="en" className="dark">
+      <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
+        <ClerkProvider>
+          {children}
+          <Toaster />
+          <Analytics />
+        </ClerkProvider>
+      </body>
+    </html>
+  )
+}
