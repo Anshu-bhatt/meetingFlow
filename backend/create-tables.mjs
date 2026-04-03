@@ -1,9 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
+import dotenv from "dotenv";
 
-const supabaseUrl = "https://gyaxydhfengrmsylwrth.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5YXh5ZGhmZW5ncm1zeWx3cnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDEyNjMwMzcsImV4cCI6MTgxNzUyOTAzN30.i7DIyJqgx8-V4YF8qqJBWyuJw6Zl8K9V8dQKF0rS0vQ";
-const serviceRoleKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5YXh5ZGhmZW5ncm1zeWx3cnRoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwMTI2MzAzNywiZXhwIjoxODE3NTI5MDM3fQ.EBYoSqk8sMN5IKgYTGN7PSVVPWrpI8xv3NVokA9xVhM";
+dotenv.config();
+dotenv.config({ path: "../.env" });
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment.");
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -95,12 +103,36 @@ async function createTables() {
     if (err4) throw err4;
     console.log("   ✓ integrations table created");
 
-    console.log("\n✅ All 4 tables created successfully!");
+    // Create app_users table
+    console.log("5. Creating app_users table...");
+    const { error: err5 } = await supabase.rpc("exec", {
+      sql: `
+        CREATE TABLE IF NOT EXISTS public.app_users (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          login_id text NOT NULL UNIQUE,
+          name text NOT NULL,
+          role text NOT NULL CHECK (role IN ('employee', 'manager')),
+          password_hash text NOT NULL,
+          session_token text UNIQUE,
+          session_expires_at timestamptz,
+          created_at timestamptz DEFAULT now(),
+          updated_at timestamptz DEFAULT now()
+        );
+        ALTER TABLE public.app_users DISABLE ROW LEVEL SECURITY;
+        CREATE INDEX IF NOT EXISTS idx_app_users_login_id ON public.app_users(login_id);
+        CREATE INDEX IF NOT EXISTS idx_app_users_session_token ON public.app_users(session_token);
+      `
+    });
+    if (err5) throw err5;
+    console.log("   ✓ app_users table created");
+
+    console.log("\n✅ All 5 tables created successfully!");
     console.log("\n📊 Summary:");
     console.log("   • meetings - stores meeting transcripts");
     console.log("   • tasks - stores extracted action items");
     console.log("   • team_members - manages workspace members");
     console.log("   • integrations - stores Slack/Jira credentials");
+    console.log("   • app_users - stores login IDs, roles, and sessions");
 
   } catch (error) {
     console.error("\n❌ Error:", error.message);

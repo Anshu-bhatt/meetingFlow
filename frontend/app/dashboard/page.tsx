@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { RedirectToSignIn, Show, useAuth } from "@clerk/nextjs"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { AIInput } from "@/components/dashboard/ai-input"
@@ -14,8 +14,14 @@ import { toast } from "sonner"
 import { ArrowLeft } from "lucide-react"
 import type { Task } from "@/lib/types"
 
+type AuthUser = {
+  login_id: string
+  name: string
+  role: string
+}
+
 export default function DashboardPage() {
-  const { getToken } = useAuth()
+  const router = useRouter()
 
   const STORAGE_KEY = "meetingflow.savedTasks"
   const TRANSCRIPT_KEY = "meetingflow.latestTranscript"
@@ -45,6 +51,39 @@ export default function DashboardPage() {
   const [speakersDetected, setSpeakersDetected] = useState<string[]>([])
   const [uploadedTranscript, setUploadedTranscript] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [authState, setAuthState] = useState<"loading" | "authenticated" | "unauthenticated">("loading")
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
+
+  useEffect(() => {
+    const loadSession = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/me`, {
+          credentials: "include",
+        })
+        const data = await response.json().catch(() => ({} as { user?: AuthUser | null }))
+
+        if (!data.user) {
+          setAuthState("unauthenticated")
+          router.replace("/sign-in")
+          return
+        }
+
+        if (data.user.role === "employee") {
+          router.replace("/employee/dashboard")
+          return
+        }
+
+        setCurrentUser(data.user)
+        setAuthState("authenticated")
+      } catch (error) {
+        console.error("[Dashboard] Session lookup failed:", error)
+        setAuthState("unauthenticated")
+        router.replace("/sign-in")
+      }
+    }
+
+    loadSession()
+  }, [router])
 
   const makeTaskFingerprint = useCallback((task: Pick<Task, "title" | "assignee" | "deadline">) => {
     return `${task.title.trim().toLowerCase()}|${(task.assignee || "").trim().toLowerCase()}|${task.deadline ?? ""}`
@@ -95,10 +134,6 @@ export default function DashboardPage() {
     setSpeakersDetected([])
 
     try {
-      console.log("[Dashboard] Getting auth token...")
-      const token = await getToken().catch(() => null)
-      console.log("[Dashboard] Token:", token ? "✓ received" : "✗ no token")
-
       const endpoint = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/extract-tasks`
       console.log("[Dashboard] Calling endpoint:", endpoint)
 
@@ -106,8 +141,8 @@ export default function DashboardPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token && { "Authorization": `Bearer ${token}` }),
         },
+        credentials: "include",
         body: JSON.stringify({ transcript }),
       })
 
@@ -154,8 +189,8 @@ export default function DashboardPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(token && { "Authorization": `Bearer ${token}` }),
           },
+          credentials: "include",
           body: JSON.stringify({
             title: `Meeting - ${new Date().toLocaleString()}`,
             transcript,
@@ -194,7 +229,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [getToken, makeTaskFingerprint])
+  }, [makeTaskFingerprint])
 
   const handleUpdateExtracted = useCallback((id: string, updates: Partial<Task>) => {
     setExtractedTasks(prev =>
@@ -253,73 +288,81 @@ export default function DashboardPage() {
     await handleExtract(transcript)
   }, [handleExtract])
 
+  if (authState !== "authenticated") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Checking your session...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <>
-      <Show when="signed-in">
-        <div className="flex min-h-screen bg-background">
-          <DashboardSidebar />
+    <div className="flex min-h-screen bg-background">
+      <DashboardSidebar />
 
-          <main className="flex-1 ml-64">
-            <div className="p-8">
-              <div className="mb-8">
-                <div className="mb-4">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/">
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
-                    </Link>
-                  </Button>
-                </div>
-                <h1 className="text-2xl font-bold mb-1">MeetingFlow Dashboard</h1>
-                <p className="text-muted-foreground">
-                  Upload meeting files, extract tasks, and track execution in one place
-                </p>
-              </div>
+      <main className="flex-1 ml-64">
+        <div className="p-8">
+          <div className="mb-8">
+            <div className="mb-4">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Link>
+              </Button>
+            </div>
+            <h1 className="text-2xl font-bold mb-1">MeetingFlow Dashboard</h1>
+            <p className="text-muted-foreground">
+              Upload meeting files, extract tasks, and track execution in one place.
+            </p>
+            {currentUser ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Signed in as {currentUser.name} ({currentUser.role})
+              </p>
+            ) : null}
+          </div>
 
-              <div className="mb-8">
-                <StatsCards stats={stats} />
-              </div>
+          <div className="mb-8">
+            <StatsCards stats={stats} />
+          </div>
 
-              <div className="mb-8">
-                <AudioUpload onTranscript={handleTranscriptUpload} />
-              </div>
+          <div className="mb-8">
+            <AudioUpload onTranscript={handleTranscriptUpload} />
+          </div>
 
-              <div className="mb-8">
-                <AIInput
-                  onExtract={handleExtract}
-                  isLoading={isLoading}
-                  initialTranscript={uploadedTranscript}
-                />
-              </div>
+          <div className="mb-8">
+            <AIInput
+              onExtract={handleExtract}
+              isLoading={isLoading}
+              initialTranscript={uploadedTranscript}
+            />
+          </div>
 
-              {(extractedTasks.length > 0 || extractionSummary) && (
-                <div className="mb-8">
-                  <ExtractedTasks
-                    tasks={extractedTasks}
-                    meetingSummary={extractionSummary}
-                    totalTasks={extractionStats?.totalTasks ?? extractedTasks.length}
-                    highPriorityCount={extractionStats?.highPriorityCount ?? extractedTasks.filter((task) => task.priority === "High").length}
-                    speakersDetected={speakersDetected}
-                    onUpdateTask={handleUpdateExtracted}
-                    onDeleteTask={handleDeleteExtracted}
-                    onSaveAll={handleSaveAll}
-                  />
-                </div>
-              )}
-
-              <TaskTable
-                tasks={savedTasks}
-                onToggleComplete={handleToggleComplete}
-                onDeleteTask={handleDeleteSaved}
+          {(extractedTasks.length > 0 || extractionSummary) && (
+            <div className="mb-8">
+              <ExtractedTasks
+                tasks={extractedTasks}
+                meetingSummary={extractionSummary}
+                totalTasks={extractionStats?.totalTasks ?? extractedTasks.length}
+                highPriorityCount={extractionStats?.highPriorityCount ?? extractedTasks.filter((task) => task.priority === "High").length}
+                speakersDetected={speakersDetected}
+                onUpdateTask={handleUpdateExtracted}
+                onDeleteTask={handleDeleteExtracted}
+                onSaveAll={handleSaveAll}
               />
             </div>
-          </main>
-        </div>
-      </Show>
+          )}
 
-      <Show when="signed-out">
-        <RedirectToSignIn />
-      </Show>
-    </>
+          <TaskTable
+            tasks={savedTasks}
+            onToggleComplete={handleToggleComplete}
+            onDeleteTask={handleDeleteSaved}
+          />
+        </div>
+      </main>
+    </div>
   )
 }
