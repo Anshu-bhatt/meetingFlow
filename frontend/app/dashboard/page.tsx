@@ -1,65 +1,69 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { RedirectToSignIn, Show, useAuth } from "@clerk/nextjs"
+import Link from "next/link"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { AIInput } from "@/components/dashboard/ai-input"
+import AudioUpload from "@/components/dashboard/audio-upload"
 import { ExtractedTasks } from "@/components/dashboard/extracted-tasks"
 import { TaskTable } from "@/components/dashboard/task-table"
-import { BackButton } from "@/components/shared/back-button"
+import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { ArrowLeft } from "lucide-react"
 import type { Task } from "@/lib/types"
-
-// Mock initial tasks
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    title: "Review Q4 budget proposal and send feedback to finance team",
-    assignee: "Sarah Smith",
-    priority: "High",
-    deadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    completed: false,
-  },
-  {
-    id: "2",
-    title: "Schedule follow-up call with Acme Corp client",
-    assignee: "Mike Johnson",
-    priority: "Medium",
-    deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-    completed: true,
-  },
-  {
-    id: "3",
-    title: "Update project timeline in Notion",
-    assignee: "Alex Chen",
-    priority: "Low",
-    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    completed: false,
-  },
-  {
-    id: "4",
-    title: "Prepare presentation for Monday standup",
-    assignee: "John Doe",
-    priority: "High",
-    deadline: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    completed: false,
-  },
-]
 
 export default function DashboardPage() {
   const { getToken } = useAuth()
-  const [savedTasks, setSavedTasks] = useState<Task[]>(initialTasks)
+
+  const STORAGE_KEY = "meetingflow.savedTasks"
+  const TRANSCRIPT_KEY = "meetingflow.latestTranscript"
+
+  const [savedTasks, setSavedTasks] = useState<Task[]>(() => {
+    if (typeof window === "undefined") {
+      return []
+    }
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY)
+      if (!raw) {
+        return []
+      }
+
+      const parsed = JSON.parse(raw) as Task[]
+      return Array.isArray(parsed) ? parsed : []
+    } catch (error) {
+      console.error("Error loading saved tasks:", error)
+      return []
+    }
+  })
+
   const [extractedTasks, setExtractedTasks] = useState<Task[]>([])
   const [extractionSummary, setExtractionSummary] = useState<string | null>(null)
   const [extractionStats, setExtractionStats] = useState<{ totalTasks: number; highPriorityCount: number } | null>(null)
+  const [uploadedTranscript, setUploadedTranscript] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
   const makeTaskFingerprint = useCallback((task: Pick<Task, "title" | "assignee" | "deadline">) => {
-    return `${task.title.trim().toLowerCase()}|${task.assignee.trim().toLowerCase()}|${task.deadline ?? ""}`
+    return `${task.title.trim().toLowerCase()}|${(task.assignee || "").trim().toLowerCase()}|${task.deadline ?? ""}`
   }, [])
 
-  // Calculate stats
+  useEffect(() => {
+    try {
+      const existingKeys = new Set<string>()
+      const deduped = savedTasks.filter((task) => {
+        const key = makeTaskFingerprint(task)
+        if (existingKeys.has(key)) return false
+        existingKeys.add(key)
+        return true
+      })
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(deduped))
+    } catch (error) {
+      console.error("Error saving tasks:", error)
+    }
+  }, [savedTasks, makeTaskFingerprint])
+
   const stats = {
     total: savedTasks.length,
     completed: savedTasks.filter(t => t.completed).length,
@@ -70,7 +74,17 @@ export default function DashboardPage() {
     }).length,
   }
 
-  // Handle AI extraction
+  useEffect(() => {
+    try {
+      const latestTranscript = window.localStorage.getItem(TRANSCRIPT_KEY)
+      if (latestTranscript?.trim()) {
+        setUploadedTranscript(latestTranscript)
+      }
+    } catch (error) {
+      console.error("Error loading latest transcript:", error)
+    }
+  }, [])
+
   const handleExtract = useCallback(async (transcript: string) => {
     setIsLoading(true)
     setExtractedTasks([])
@@ -78,7 +92,7 @@ export default function DashboardPage() {
     setExtractionStats(null)
 
     try {
-      const token = await getToken()
+      const token = await getToken().catch(() => null)
       const endpoint = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/extract-tasks`
       const response = await fetch(endpoint, {
         method: "POST",
@@ -100,6 +114,7 @@ export default function DashboardPage() {
         totalTasks?: number
         highPriorityCount?: number
       } = await response.json()
+
       const uniqueTasks = data.tasks.filter((task, index, list) => {
         const key = makeTaskFingerprint(task)
         return list.findIndex((candidate) => makeTaskFingerprint(candidate) === key) === index
@@ -119,9 +134,8 @@ export default function DashboardPage() {
         return
       }
 
-      // Save meeting and tasks to database
       try {
-        const saveResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/meetings/save`, {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/meetings/save`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -133,17 +147,12 @@ export default function DashboardPage() {
             tasks: uniqueTasks,
           }),
         })
-
-        if (saveResponse.ok) {
-          const saved = await saveResponse.json()
-          console.log("✓ Meeting and tasks saved to database:", saved.meeting.id)
-        }
       } catch (dbError) {
         console.error("Database save error:", dbError)
       }
 
       toast.success(`${uniqueTasks.length} tasks extracted successfully!`, {
-        description: "✓ Saved to database. Review and customize as needed.",
+        description: "Review and customize tasks before saving.",
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not extract tasks"
@@ -153,22 +162,19 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [makeTaskFingerprint, getToken])
+  }, [getToken, makeTaskFingerprint])
 
-  // Update extracted task
   const handleUpdateExtracted = useCallback((id: string, updates: Partial<Task>) => {
-    setExtractedTasks(prev => 
+    setExtractedTasks(prev =>
       prev.map(task => task.id === id ? { ...task, ...updates } : task)
     )
   }, [])
 
-  // Delete extracted task
   const handleDeleteExtracted = useCallback((id: string) => {
     setExtractedTasks(prev => prev.filter(task => task.id !== id))
     toast.info("Task removed")
   }, [])
 
-  // Save all extracted tasks
   const handleSaveAll = useCallback(() => {
     setSavedTasks(prev => {
       const existingKeys = new Set(prev.map((task) => makeTaskFingerprint(task)))
@@ -184,41 +190,57 @@ export default function DashboardPage() {
       return [...toAdd, ...prev]
     })
     setExtractedTasks([])
+
     toast.success("All tasks saved!", {
-      description: "Tasks have been added to your task list.",
+      description: "Tasks have been added to your browser storage.",
     })
   }, [extractedTasks, makeTaskFingerprint])
 
-  // Toggle task completion
   const handleToggleComplete = useCallback((id: string) => {
-    setSavedTasks(prev => 
-      prev.map(task => 
+    setSavedTasks(prev =>
+      prev.map(task =>
         task.id === id ? { ...task, completed: !task.completed } : task
       )
     )
   }, [])
 
-  // Delete saved task
   const handleDeleteSaved = useCallback((id: string) => {
     setSavedTasks(prev => prev.filter(task => task.id !== id))
     toast.info("Task deleted")
   }, [])
 
+  const handleTranscriptUpload = useCallback(async (transcript: string) => {
+    setUploadedTranscript(transcript)
+
+    try {
+      window.localStorage.setItem(TRANSCRIPT_KEY, transcript)
+    } catch (error) {
+      console.error("Error caching transcript:", error)
+    }
+
+    await handleExtract(transcript)
+  }, [handleExtract])
+
   return (
     <>
       <Show when="signed-in">
-        <div className="wm-shell flex min-h-screen bg-background">
+        <div className="flex min-h-screen bg-background">
           <DashboardSidebar />
 
           <main className="flex-1 ml-64">
             <div className="p-8">
               <div className="mb-8">
                 <div className="mb-4">
-                  <BackButton fallbackHref="/" label="Back to Home" />
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/">
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back
+                    </Link>
+                  </Button>
                 </div>
-                <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
+                <h1 className="text-2xl font-bold mb-1">MeetingFlow Dashboard</h1>
                 <p className="text-muted-foreground">
-                  Extract and manage tasks from your meetings
+                  Upload meeting files, extract tasks, and track execution in one place
                 </p>
               </div>
 
@@ -227,7 +249,15 @@ export default function DashboardPage() {
               </div>
 
               <div className="mb-8">
-                <AIInput onExtract={handleExtract} isLoading={isLoading} />
+                <AudioUpload onTranscript={handleTranscriptUpload} />
+              </div>
+
+              <div className="mb-8">
+                <AIInput
+                  onExtract={handleExtract}
+                  isLoading={isLoading}
+                  initialTranscript={uploadedTranscript}
+                />
               </div>
 
               {(extractedTasks.length > 0 || extractionSummary) && (

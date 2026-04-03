@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import aiRoutes from "./src/routes/ai.js";
 import authRoutes from "./src/routes/auth.js";
 import dbRoutes from "./src/routes/db.js";
+import meetingRoute from "./src/routes/meetingRoute.js";
+import transcribeRoute from "./src/routes/transcribe.js";
 
 dotenv.config();
 dotenv.config({ path: "../.env" });
@@ -21,6 +23,8 @@ app.use(express.json());
 app.use("/api/ai", aiRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api", dbRoutes);
+app.use("/api", meetingRoute);
+app.use("/api/transcribe", transcribeRoute);
 
 const PORT = process.env.PORT || 5000;
 

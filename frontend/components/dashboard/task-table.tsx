@@ -31,7 +31,7 @@ interface TaskTableProps {
 
 export function TaskTable({ tasks, onToggleComplete, onDeleteTask }: TaskTableProps) {
   return (
-    <Card className="bg-card border-border">
+    <Card className="wm-card bg-card border-border">
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
