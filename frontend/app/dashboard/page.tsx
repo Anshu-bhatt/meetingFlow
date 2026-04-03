@@ -72,33 +72,16 @@ export default function DashboardPage() {
     setIsLoading(true)
 
     try {
+      const token = await getToken()
       const endpoint = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/extract-tasks`
-
-      const callExtract = async (token?: string | null) => {
-        const headers: HeadersInit = {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
           "Content-Type": "application/json",
-        }
-
-        if (token) {
-          headers.Authorization = `Bearer ${token}`
-        }
-
-        return fetch(endpoint, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ transcript }),
-        })
-      }
-
-      // Avoid token requests when backend allows local unauthenticated mode.
-      let response = await callExtract()
-
-      if (response.status === 401 || response.status === 403) {
-        const token = await getToken().catch(() => null)
-        if (token) {
-          response = await callExtract(token)
-        }
-      }
+          ...(token && { "Authorization": `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ transcript }),
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({} as { error?: string }))
@@ -131,7 +114,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [getToken, makeTaskFingerprint])
+  }, [makeTaskFingerprint, getToken])
 
   // Update extracted task
   const handleUpdateExtracted = useCallback((id: string, updates: Partial<Task>) => {
