@@ -71,6 +71,17 @@ export const getTasksByMeeting = async (meetingId) => {
   return data || [];
 };
 
+export const getTasksByWorkspace = async (workspaceId) => {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*, meetings!inner(workspace_id)")
+    .eq("meetings.workspace_id", workspaceId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map(({ meetings, ...task }) => task);
+};
+
 export const updateTask = async (taskId, updates) => {
   const { data, error } = await supabase
     .from("tasks")

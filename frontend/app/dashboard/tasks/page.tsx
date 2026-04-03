@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { Show } from "@clerk/nextjs"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { Show, useAuth } from "@clerk/nextjs"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
@@ -9,33 +9,32 @@ import { TaskTable } from "@/components/dashboard/task-table"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { Button } from "@/components/ui/button"
 import type { Task } from "@/lib/types"
-
-const STORAGE_KEY = "meetingflow.savedTasks"
+import { deleteTaskById, fetchAllTasks, updateTaskById } from "@/lib/meetings-api"
+import { toast } from "sonner"
 
 export default function TasksPage() {
+  const { getToken } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  useEffect(() => {
+  const loadTasks = useCallback(async () => {
+    setIsLoading(true)
+
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
-      if (!raw) return
-
-      const parsed = JSON.parse(raw) as Task[]
-      if (Array.isArray(parsed)) {
-        setTasks(parsed)
-      }
+      const token = await getToken().catch(() => null)
+      const loaded = await fetchAllTasks(token)
+      setTasks(loaded)
     } catch (error) {
       console.error("Failed to load tasks", error)
+      toast.error("Could not load tasks")
+    } finally {
+      setIsLoading(false)
     }
-  }, [])
+  }, [getToken])
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
-    } catch (error) {
-      console.error("Failed to persist tasks", error)
-    }
-  }, [tasks])
+    void loadTasks()
+  }, [loadTasks])
 
   const stats = useMemo(() => {
     return {
@@ -49,17 +48,43 @@ export default function TasksPage() {
     }
   }, [tasks])
 
-  const handleToggleComplete = (id: string) => {
-    setTasks((previous) =>
-      previous.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task,
-      ),
-    )
-  }
+  const handleToggleComplete = useCallback(async (id: string) => {
+    const current = tasks.find((task) => task.id === id)
+    if (!current) return
 
-  const handleDeleteTask = (id: string) => {
-    setTasks((previous) => previous.filter((task) => task.id !== id))
-  }
+    const nextCompleted = !current.completed
+
+    setTasks((previous) =>
+      previous.map((task) => task.id === id ? { ...task, completed: nextCompleted } : task),
+    )
+
+    try {
+      const token = await getToken().catch(() => null)
+      await updateTaskById(id, { completed: nextCompleted }, token)
+    } catch (error) {
+      setTasks((previous) =>
+        previous.map((task) => task.id === id ? { ...task, completed: current.completed } : task),
+      )
+
+      const message = error instanceof Error ? error.message : "Could not update task"
+      toast.error("Task update failed", { description: message })
+    }
+  }, [getToken, tasks])
+
+  const handleDeleteTask = useCallback(async (id: string) => {
+    const previous = tasks
+    setTasks((current) => current.filter((task) => task.id !== id))
+
+    try {
+      const token = await getToken().catch(() => null)
+      await deleteTaskById(id, token)
+      toast.success("Task deleted")
+    } catch (error) {
+      setTasks(previous)
+      const message = error instanceof Error ? error.message : "Could not delete task"
+      toast.error("Delete failed", { description: message })
+    }
+  }, [getToken, tasks])
 
   return (
     <>
@@ -79,7 +104,7 @@ export default function TasksPage() {
                   </Button>
                 </div>
                 <h1 className="text-2xl font-bold mb-1">Task Management</h1>
-                <p className="text-muted-foreground">Review, complete, and clean up your extracted action items.</p>
+                <p className="text-muted-foreground">All extracted tasks are synced from your meeting history.</p>
               </div>
 
               <div className="mb-8">
@@ -91,6 +116,10 @@ export default function TasksPage() {
                 onToggleComplete={handleToggleComplete}
                 onDeleteTask={handleDeleteTask}
               />
+
+              {isLoading && (
+                <p className="mt-3 text-xs text-muted-foreground">Loading tasks...</p>
+              )}
             </div>
           </main>
         </div>

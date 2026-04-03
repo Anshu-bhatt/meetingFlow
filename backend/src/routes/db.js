@@ -6,6 +6,7 @@ import {
   getMeetingById,
   saveTasks,
   getTasksByMeeting,
+  getTasksByWorkspace,
   updateTask,
   deleteTask,
   addTeamMember,
@@ -91,6 +92,18 @@ router.get("/meetings/:id", requireAuth, async (req, res) => {
 router.get("/meetings/:meetingId/tasks", requireAuth, async (req, res) => {
   try {
     const tasks = await getTasksByMeeting(req.params.meetingId);
+    res.json({ tasks });
+  } catch (error) {
+    console.error("[tasks] Error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all tasks in workspace (faster than loading tasks meeting-by-meeting)
+router.get("/tasks", requireAuth, async (req, res) => {
+  try {
+    const workspaceId = req.auth?.userId;
+    const tasks = await getTasksByWorkspace(workspaceId);
     res.json({ tasks });
   } catch (error) {
     console.error("[tasks] Error:", error.message);

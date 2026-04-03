@@ -17,10 +17,10 @@ export function AIInput({ onExtract, isLoading, initialTranscript }: AIInputProp
   const [transcript, setTranscript] = useState("")
 
   useEffect(() => {
-    if (initialTranscript && initialTranscript !== transcript) {
+    if (typeof initialTranscript === "string") {
       setTranscript(initialTranscript)
     }
-  }, [initialTranscript, transcript])
+  }, [initialTranscript])
   
   const handleSubmit = () => {
     if (transcript.trim()) {
@@ -53,23 +53,33 @@ Example:
           onChange={(e) => setTranscript(e.target.value)}
           className="min-h-[180px] bg-secondary/50 border-border/70 resize-none"
         />
-        <Button 
-          onClick={handleSubmit} 
-          disabled={!transcript.trim() || isLoading}
-          className="w-full sm:w-auto bg-gradient-to-r from-primary to-accent text-primary-foreground"
-        >
-          {isLoading ? (
-            <>
-              <Spinner className="mr-2 h-4 w-4" />
-              Extracting Tasks...
-            </>
-          ) : (
-            <>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Extract Tasks
-            </>
-          )}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={handleSubmit}
+            disabled={!transcript.trim() || isLoading}
+            className="w-full sm:w-auto bg-gradient-to-r from-primary to-accent text-primary-foreground"
+          >
+            {isLoading ? (
+              <>
+                <Spinner className="mr-2 h-4 w-4" />
+                Extracting Tasks...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Extract Tasks
+              </>
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!transcript.trim() || isLoading}
+            onClick={() => setTranscript("")}
+          >
+            Clear transcript
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
