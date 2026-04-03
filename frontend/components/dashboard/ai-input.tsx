@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Sparkles } from "lucide-react"
+import { Sparkles, X } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
 
 interface AIInputProps {
@@ -16,15 +16,29 @@ interface AIInputProps {
 export function AIInput({ onExtract, isLoading, initialTranscript }: AIInputProps) {
   const [transcript, setTranscript] = useState("")
 
+  // Only set initial transcript once on mount, don't keep syncing
   useEffect(() => {
-    if (typeof initialTranscript === "string") {
+    if (initialTranscript && transcript === "") {
       setTranscript(initialTranscript)
     }
-  }, [initialTranscript])
-  
+  }, [])
+
+  const handleClear = () => {
+    console.log("[AIInput] Clearing transcript")
+    setTranscript("")
+  }
+
   const handleSubmit = () => {
+    console.log("[AIInput] handleSubmit called")
+    console.log("[AIInput] transcript length:", transcript.length)
+    console.log("[AIInput] transcript.trim():", transcript.trim().length > 0)
+    console.log("[AIInput] full transcript:", transcript)
+
     if (transcript.trim()) {
+      console.log("[AIInput] Calling onExtract with transcript:", transcript.substring(0, 50))
       onExtract(transcript)
+    } else {
+      console.log("[AIInput] Transcript is empty!")
     }
   }
 
@@ -47,17 +61,33 @@ Example:
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Textarea
-          placeholder={placeholder}
-          value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
-          className="min-h-[180px] bg-secondary/50 border-border/70 resize-none"
-        />
-        <div className="flex flex-wrap gap-2">
+        <div className="relative">
+          <Textarea
+            placeholder={placeholder}
+            value={transcript}
+            onChange={(e) => {
+              console.log("[AIInput] onChange fired, new value length:", e.target.value.length)
+              setTranscript(e.target.value)
+            }}
+            disabled={isLoading}
+            className="min-h-[180px] bg-secondary/50 border-border/70 resize-none"
+          />
+          {transcript && (
+            <button
+              onClick={handleClear}
+              disabled={isLoading}
+              className="absolute top-2 right-2 p-2 hover:bg-destructive/20 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+              title="Clear transcript"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2">
           <Button
             onClick={handleSubmit}
             disabled={!transcript.trim() || isLoading}
-            className="w-full sm:w-auto bg-gradient-to-r from-primary to-accent text-primary-foreground"
+            className="flex-1 sm:flex-none bg-gradient-to-r from-primary to-accent text-primary-foreground"
           >
             {isLoading ? (
               <>
@@ -71,15 +101,20 @@ Example:
               </>
             )}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!transcript.trim() || isLoading}
-            onClick={() => setTranscript("")}
-          >
-            Clear transcript
-          </Button>
+          {transcript && (
+            <Button
+              variant="outline"
+              onClick={handleClear}
+              disabled={isLoading}
+              className="flex-1 sm:flex-none"
+            >
+              Clear
+            </Button>
+          )}
         </div>
+        <p className="text-xs text-muted-foreground">
+          {transcript.length} character{transcript.length !== 1 ? 's' : ''}
+        </p>
       </CardContent>
     </Card>
   )

@@ -18,6 +18,7 @@ interface ExtractedTasksProps {
   meetingSummary?: string | null
   totalTasks?: number | null
   highPriorityCount?: number | null
+  speakersDetected?: string[]
   onUpdateTask: (id: string, updates: Partial<Task>) => void
   onDeleteTask: (id: string) => void
   onSaveAll: () => void
@@ -28,11 +29,23 @@ export function ExtractedTasks({
   meetingSummary,
   totalTasks,
   highPriorityCount,
+  speakersDetected = [],
   onUpdateTask,
   onDeleteTask,
   onSaveAll,
 }: ExtractedTasksProps) {
   if (tasks.length === 0 && !meetingSummary) return null
+
+  // Get list of assignees to show in dropdown (speakers from transcript or all team members)
+  const getAvailableAssignees = (currentAssignee: string) => {
+    const speakers = speakersDetected.length > 0 ? speakersDetected : teamMembers
+    // Put current assignee first if they're in the list and not "Unassigned"
+    const filtered = speakers.filter(name => name !== "Unassigned")
+    if (currentAssignee && currentAssignee !== "Unassigned" && !filtered.includes(currentAssignee)) {
+      return [currentAssignee, ...filtered]
+    }
+    return filtered
+  }
 
   return (
     <Card className="bg-card border-border">
@@ -73,103 +86,93 @@ export function ExtractedTasks({
         ) : null}
 
         {tasks.map((task) => (
-          <div 
-            key={task.id} 
-            className="flex flex-col lg:flex-row lg:items-center gap-4 p-4 rounded-xl bg-secondary/30 border border-border/50"
+          <div
+            key={task.id}
+            className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50 hover:bg-secondary/50 transition-colors"
           >
-            {/* Task title and checkbox */}
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <Checkbox
-                checked={task.completed}
-                onCheckedChange={(checked) => 
-                  onUpdateTask(task.id, { completed: checked as boolean })
-                }
-                className="mt-0.5 border-muted-foreground/70 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 data-[state=checked]:text-white"
-              />
-              <span className={cn(
-                "text-sm leading-relaxed",
-                task.completed && "line-through text-muted-foreground"
-              )}>
-                {task.title}
-              </span>
-            </div>
-            
-            {/* Controls */}
-            <div className="flex flex-wrap items-center gap-2 lg:gap-3">
-              {/* Assignee dropdown */}
-              <Select
-                value={task.assignee}
-                onValueChange={(value) => onUpdateTask(task.id, { assignee: value })}
-              >
-                <SelectTrigger className="w-[140px] h-9 text-xs bg-secondary/50">
-                  <SelectValue placeholder="Assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member} value={member}>
-                      {member}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {/* Priority badge/dropdown */}
-              <Select
-                value={task.priority}
-                onValueChange={(value) => onUpdateTask(task.id, { priority: value as Task["priority"] })}
-              >
-                <SelectTrigger className="w-[100px] h-9 text-xs bg-secondary/50">
-                  <Badge 
-                    variant={task.priority === "High" ? "destructive" : task.priority === "Medium" ? "default" : "secondary"}
-                    className="text-xs"
-                  >
-                    {task.priority}
-                  </Badge>
-                </SelectTrigger>
-                <SelectContent>
-                  {priorities.map((priority) => (
-                    <SelectItem key={priority} value={priority}>
-                      <Badge 
-                        variant={priority === "High" ? "destructive" : priority === "Medium" ? "default" : "secondary"}
-                        className="text-xs"
-                      >
-                        {priority}
-                      </Badge>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {/* Deadline date picker */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 w-[130px] justify-start text-xs bg-secondary/50 hover:bg-secondary">
-                    <CalendarIcon className="mr-2 h-3 w-3" />
-                    {task.deadline ? format(new Date(task.deadline), "MMM d, yyyy") : "Set date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={task.deadline ? new Date(task.deadline) : undefined}
-                    onSelect={(date) => 
-                      onUpdateTask(task.id, { deadline: date?.toISOString() ?? null })
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              
-              {/* Delete button */}
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => onDeleteTask(task.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+            {/* Checkbox */}
+            <Checkbox
+              checked={task.completed}
+              onCheckedChange={(checked) =>
+                onUpdateTask(task.id, { completed: checked as boolean })
+              }
+              className="flex-shrink-0 border-muted-foreground/70 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 data-[state=checked]:text-white"
+            />
+
+            {/* Task title */}
+            <span className={cn(
+              "text-sm flex-1 min-w-0",
+              task.completed && "line-through text-muted-foreground"
+            )}>
+              {task.title}
+            </span>
+
+            {/* Assignee - Editable Select */}
+            <Select
+              value={task.assignee}
+              onValueChange={(value) => onUpdateTask(task.id, { assignee: value })}
+            >
+              <SelectTrigger className="flex-shrink-0 h-7 px-2 text-xs bg-blue-500/15 border border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-500/25 rounded-md">
+                <SelectValue placeholder="👤 Assign" />
+              </SelectTrigger>
+              <SelectContent>
+                {getAvailableAssignees(task.assignee).map((member) => (
+                  <SelectItem key={member} value={member}>
+                    👤 {member}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Priority */}
+            <Select
+              value={task.priority}
+              onValueChange={(value) => onUpdateTask(task.id, { priority: value as Task["priority"] })}
+            >
+              <SelectTrigger className="flex-shrink-0 h-7 w-auto px-2 text-xs bg-secondary/50 border-border/50 rounded-md">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {priorities.map((priority) => (
+                  <SelectItem key={priority} value={priority}>
+                    {priority}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Deadline */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0 h-7 px-2 text-xs bg-secondary/50 hover:bg-secondary border-border/50 rounded-md"
+                >
+                  <CalendarIcon className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={task.deadline ? new Date(task.deadline) : undefined}
+                  onSelect={(date) =>
+                    onUpdateTask(task.id, { deadline: date?.toISOString() ?? null })
+                  }
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* Delete */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-shrink-0 h-7 w-7 p-0 text-muted-foreground hover:text-destructive rounded-md"
+              onClick={() => onDeleteTask(task.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ))}
       </CardContent>
