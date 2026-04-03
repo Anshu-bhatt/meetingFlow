@@ -42,6 +42,7 @@ export default function DashboardPage() {
   const [extractedTasks, setExtractedTasks] = useState<Task[]>([])
   const [extractionSummary, setExtractionSummary] = useState<string | null>(null)
   const [extractionStats, setExtractionStats] = useState<{ totalTasks: number; highPriorityCount: number } | null>(null)
+  const [speakersDetected, setSpeakersDetected] = useState<string[]>([])
   const [uploadedTranscript, setUploadedTranscript] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
@@ -86,14 +87,21 @@ export default function DashboardPage() {
   }, [])
 
   const handleExtract = useCallback(async (transcript: string) => {
+    console.log("[Dashboard] handleExtract called with transcript length:", transcript.length)
     setIsLoading(true)
     setExtractedTasks([])
     setExtractionSummary(null)
     setExtractionStats(null)
+    setSpeakersDetected([])
 
     try {
+      console.log("[Dashboard] Getting auth token...")
       const token = await getToken().catch(() => null)
+      console.log("[Dashboard] Token:", token ? "✓ received" : "✗ no token")
+
       const endpoint = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/extract-tasks`
+      console.log("[Dashboard] Calling endpoint:", endpoint)
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -103,8 +111,11 @@ export default function DashboardPage() {
         body: JSON.stringify({ transcript }),
       })
 
+      console.log("[Dashboard] Response status:", response.status)
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({} as { error?: string }))
+        console.error("[Dashboard] API error:", errorData)
         throw new Error(errorData.error || "Task extraction failed")
       }
 
@@ -113,7 +124,10 @@ export default function DashboardPage() {
         meetingSummary?: string
         totalTasks?: number
         highPriorityCount?: number
+        speakers_detected?: string[]
       } = await response.json()
+
+      console.log("[Dashboard] Received data:", data)
 
       const uniqueTasks = data.tasks.filter((task, index, list) => {
         const key = makeTaskFingerprint(task)
@@ -121,6 +135,7 @@ export default function DashboardPage() {
       })
 
       setExtractedTasks(uniqueTasks)
+      setSpeakersDetected(data.speakers_detected || [])
       setExtractionSummary(data.meetingSummary || null)
       setExtractionStats({
         totalTasks: data.totalTasks ?? uniqueTasks.length,
@@ -135,7 +150,7 @@ export default function DashboardPage() {
       }
 
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/meetings/save`, {
+        const saveResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/meetings/save`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -147,8 +162,25 @@ export default function DashboardPage() {
             tasks: uniqueTasks,
           }),
         })
+
+        if (!saveResponse.ok) {
+          const saveError = await saveResponse.json().catch(() => ({} as { error?: string }))
+          console.error("Save failed:", saveError)
+          toast.warning("Tasks extracted but not saved to database", {
+            description: saveError.error || "Database save failed",
+          })
+        } else {
+          const saveData = await saveResponse.json()
+          console.log("✅ Tasks saved to database:", saveData)
+          toast.success("Tasks extracted and saved to database!", {
+            description: `${saveData.tasks?.length || 0} tasks saved`,
+          })
+        }
       } catch (dbError) {
         console.error("Database save error:", dbError)
+        toast.error("Could not save to database", {
+          description: dbError instanceof Error ? dbError.message : "Unknown error",
+        })
       }
 
       toast.success(`${uniqueTasks.length} tasks extracted successfully!`, {
@@ -267,6 +299,7 @@ export default function DashboardPage() {
                     meetingSummary={extractionSummary}
                     totalTasks={extractionStats?.totalTasks ?? extractedTasks.length}
                     highPriorityCount={extractionStats?.highPriorityCount ?? extractedTasks.filter((task) => task.priority === "High").length}
+                    speakersDetected={speakersDetected}
                     onUpdateTask={handleUpdateExtracted}
                     onDeleteTask={handleDeleteExtracted}
                     onSaveAll={handleSaveAll}
