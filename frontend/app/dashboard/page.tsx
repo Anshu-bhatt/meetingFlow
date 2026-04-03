@@ -1,61 +1,63 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { RedirectToSignIn, Show, useAuth } from "@clerk/nextjs"
+import { useState, useCallback, useEffect } from "react"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { AIInput } from "@/components/dashboard/ai-input"
 import { ExtractedTasks } from "@/components/dashboard/extracted-tasks"
 import { TaskTable } from "@/components/dashboard/task-table"
-import { BackButton } from "@/components/shared/back-button"
+import { DashboardPlan } from "@/components/dashboard/dashboard-plan"
 import { toast } from "sonner"
 import type { Task } from "@/lib/types"
 
-// Mock initial tasks
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    title: "Review Q4 budget proposal and send feedback to finance team",
-    assignee: "Sarah Smith",
-    priority: "High",
-    deadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    completed: false,
-  },
-  {
-    id: "2",
-    title: "Schedule follow-up call with Acme Corp client",
-    assignee: "Mike Johnson",
-    priority: "Medium",
-    deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-    completed: true,
-  },
-  {
-    id: "3",
-    title: "Update project timeline in Notion",
-    assignee: "Alex Chen",
-    priority: "Low",
-    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    completed: false,
-  },
-  {
-    id: "4",
-    title: "Prepare presentation for Monday standup",
-    assignee: "John Doe",
-    priority: "High",
-    deadline: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    completed: false,
-  },
-]
 
 export default function DashboardPage() {
-  const { getToken } = useAuth()
-  const [savedTasks, setSavedTasks] = useState<Task[]>(initialTasks)
+  const STORAGE_KEY = "meetflow.savedTasks"
+
+  const [savedTasks, setSavedTasks] = useState<Task[]>(() => {
+    if (typeof window === "undefined") {
+      return []
+    }
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY)
+      if (!raw) {
+        return []
+      }
+
+      const parsed = JSON.parse(raw) as Task[]
+      return Array.isArray(parsed) ? parsed : []
+    } catch (error) {
+      console.error("Error loading saved tasks:", error)
+      return []
+    }
+  })
   const [extractedTasks, setExtractedTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
-  const makeTaskFingerprint = useCallback((task: Pick<Task, "title" | "assignee" | "deadline">) => {
-    return `${task.title.trim().toLowerCase()}|${task.assignee.trim().toLowerCase()}|${task.deadline ?? ""}`
+  const dedupeTasks = useCallback((tasks: Task[]) => {
+    const seen = new Set<string>()
+
+    return tasks.filter((task) => {
+      const key = `${task.title.trim().toLowerCase()}|${(task.assignee || "").trim().toLowerCase()}|${task.deadline ?? ""}`
+      if (seen.has(key)) {
+        return false
+      }
+
+      seen.add(key)
+      return true
+    })
   }, [])
+
+  // Persist saved tasks locally
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(dedupeTasks(savedTasks)))
+    } catch (error) {
+      console.error("Error saving tasks:", error)
+    }
+  }, [savedTasks, dedupeTasks])
 
   // Calculate stats
   const stats = {
@@ -75,31 +77,13 @@ export default function DashboardPage() {
     try {
       const endpoint = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/extract-tasks`
 
-      const callExtract = async (token?: string | null) => {
-        const headers: HeadersInit = {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
           "Content-Type": "application/json",
-        }
-
-        if (token) {
-          headers.Authorization = `Bearer ${token}`
-        }
-
-        return fetch(endpoint, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ transcript }),
-        })
-      }
-
-      // Avoid token requests when backend allows local unauthenticated mode.
-      let response = await callExtract()
-
-      if (response.status === 401 || response.status === 403) {
-        const token = await getToken().catch(() => null)
-        if (token) {
-          response = await callExtract(token)
-        }
-      }
+        },
+        body: JSON.stringify({ transcript }),
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({} as { error?: string }))
@@ -108,8 +92,11 @@ export default function DashboardPage() {
 
       const data: { tasks: Task[] } = await response.json()
       const uniqueTasks = data.tasks.filter((task, index, list) => {
-        const key = makeTaskFingerprint(task)
-        return list.findIndex((candidate) => makeTaskFingerprint(candidate) === key) === index
+        const key = `${task.title.toLowerCase()}|${(task.assignee || "").toLowerCase()}|${task.deadline ?? ""}`
+        return list.findIndex((candidate) => {
+          const candidateKey = `${candidate.title.toLowerCase()}|${(candidate.assignee || "").toLowerCase()}|${candidate.deadline ?? ""}`
+          return candidateKey === key
+        }) === index
       })
 
       setExtractedTasks(uniqueTasks)
@@ -132,7 +119,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [getToken, makeTaskFingerprint])
+  }, [])
 
   // Update extracted task
   const handleUpdateExtracted = useCallback((id: string, updates: Partial<Task>) => {
@@ -147,92 +134,83 @@ export default function DashboardPage() {
     toast.info("Task removed")
   }, [])
 
-  // Save all extracted tasks
-  const handleSaveAll = useCallback(() => {
-    setSavedTasks(prev => {
-      const existingKeys = new Set(prev.map((task) => makeTaskFingerprint(task)))
-      const toAdd = extractedTasks.filter((task) => {
-        const key = makeTaskFingerprint(task)
-        if (existingKeys.has(key)) {
-          return false
-        }
-        existingKeys.add(key)
-        return true
+  // Save all extracted tasks to backend
+  const handleSaveAll = useCallback(async () => {
+    try {
+      setIsSaving(true)
+      setSavedTasks(prev => dedupeTasks([...extractedTasks, ...prev]))
+      setExtractedTasks([])
+
+      toast.success("All tasks saved!", {
+        description: "Tasks have been added to your browser storage.",
       })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save tasks"
+      toast.error("Could not save tasks", {
+        description: message,
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }, [extractedTasks, dedupeTasks])
 
-      return [...toAdd, ...prev]
-    })
-    setExtractedTasks([])
-    toast.success("All tasks saved!", {
-      description: "Tasks have been added to your task list.",
-    })
-  }, [extractedTasks, makeTaskFingerprint])
-
-  // Toggle task completion
-  const handleToggleComplete = useCallback((id: string) => {
+  // Toggle task completion locally
+  const handleToggleComplete = useCallback(async (id: string) => {
     setSavedTasks(prev => 
-      prev.map(task => 
-        task.id === id ? { ...task, completed: !task.completed } : task
+      prev.map(t => 
+        t.id === id ? { ...t, completed: !t.completed } : t
       )
     )
   }, [])
 
-  // Delete saved task
-  const handleDeleteSaved = useCallback((id: string) => {
+  // Delete saved task locally
+  const handleDeleteSaved = useCallback(async (id: string) => {
     setSavedTasks(prev => prev.filter(task => task.id !== id))
     toast.info("Task deleted")
   }, [])
 
   return (
-    <>
-      <Show when="signed-in">
-        <div className="wm-shell flex min-h-screen bg-background">
-          <DashboardSidebar />
+    <div className="flex min-h-screen bg-background">
+      <DashboardSidebar />
 
-          <main className="flex-1 ml-64">
-            <div className="p-8">
-              <div className="mb-8">
-                <div className="mb-4">
-                  <BackButton fallbackHref="/" label="Back to Home" />
-                </div>
-                <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
-                <p className="text-muted-foreground">
-                  Extract and manage tasks from your meetings
-                </p>
-              </div>
+      <main className="flex-1 ml-64">
+        <div className="p-8">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Extract and manage tasks from your meetings
+            </p>
+          </div>
 
-              <div className="mb-8">
-                <StatsCards stats={stats} />
-              </div>
+          <div className="mb-8">
+            <StatsCards stats={stats} />
+          </div>
 
-              <div className="mb-8">
-                <AIInput onExtract={handleExtract} isLoading={isLoading} />
-              </div>
+          <DashboardPlan />
 
-              {extractedTasks.length > 0 && (
-                <div className="mb-8">
-                  <ExtractedTasks
-                    tasks={extractedTasks}
-                    onUpdateTask={handleUpdateExtracted}
-                    onDeleteTask={handleDeleteExtracted}
-                    onSaveAll={handleSaveAll}
-                  />
-                </div>
-              )}
+          <div className="mb-8">
+            <AIInput onExtract={handleExtract} isLoading={isLoading} />
+          </div>
 
-              <TaskTable
-                tasks={savedTasks}
-                onToggleComplete={handleToggleComplete}
-                onDeleteTask={handleDeleteSaved}
+          {extractedTasks.length > 0 && (
+            <div className="mb-8">
+              <ExtractedTasks
+                tasks={extractedTasks}
+                onUpdateTask={handleUpdateExtracted}
+                onDeleteTask={handleDeleteExtracted}
+                onSaveAll={handleSaveAll}
+                isSaving={isSaving}
               />
             </div>
-          </main>
-        </div>
-      </Show>
+          )}
 
-      <Show when="signed-out">
-        <RedirectToSignIn />
-      </Show>
-    </>
+          <TaskTable
+            tasks={savedTasks}
+            onToggleComplete={handleToggleComplete}
+            onDeleteTask={handleDeleteSaved}
+          />
+        </div>
+      </main>
+    </div>
   )
 }

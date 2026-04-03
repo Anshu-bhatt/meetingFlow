@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { SignOutButton, useUser } from "@clerk/nextjs"
 import { 
   LayoutDashboard, 
   CheckSquare, 
@@ -23,9 +22,8 @@ const navItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const { user } = useUser()
-  const fullName = user?.fullName || user?.firstName || "User"
-  const email = user?.primaryEmailAddress?.emailAddress || ""
+  const fullName = "Local User"
+  const email = "local@meetflow.dev"
   const initials =
     fullName
       .split(" ")
@@ -81,12 +79,12 @@ export function DashboardSidebar() {
             <p className="text-xs text-sidebar-foreground/60 truncate">{email}</p>
           </div>
         </div>
-        <SignOutButton>
-          <Button variant="ghost" className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground">
+        <Button variant="ghost" className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground" asChild>
+          <Link href="/">
             <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
-        </SignOutButton>
+            Back to Home
+          </Link>
+        </Button>
       </div>
     </aside>
   )

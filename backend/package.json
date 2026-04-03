@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node index.js",
+    "setup:whisper": "py -3 -m pip install -r requirements-whisper.txt",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -20,6 +21,7 @@
     "dotenv": "^17.4.0",
     "express": "^5.2.1",
     "langchain": "^1.2.39",
+    "multer": "^2.1.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

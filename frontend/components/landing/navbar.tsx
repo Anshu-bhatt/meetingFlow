@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button"
 import { Zap } from "lucide-react"
 import Link from "next/link"
-import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs"
 
 export function Navbar() {
   return (
@@ -33,23 +32,12 @@ export function Navbar() {
           
           {/* CTA */}
           <div className="flex items-center gap-4">
-            <Show when="signed-out">
-              <SignInButton mode="modal">
-                <Button variant="ghost" size="sm" className="hidden sm:flex">
-                  Sign In
-                </Button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <Button size="sm">Get Started</Button>
-              </SignUpButton>
-            </Show>
-
-            <Show when="signed-in">
-              <Button size="sm" asChild>
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
-              <UserButton afterSignOutUrl="/" />
-            </Show>
+            <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
+            <Button size="sm" asChild>
+              <Link href="/dashboard">Get Started</Link>
+            </Button>
           </div>
         </div>
       </div>
