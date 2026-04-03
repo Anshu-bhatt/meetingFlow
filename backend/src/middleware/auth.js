@@ -1,44 +1,37 @@
-import { clerkClient } from "@clerk/clerk-sdk-node";
+import { getAppUserBySessionToken, sanitizeAppUser } from "../services/db.js";
+
+const parseCookies = (cookieHeader = "") => {
+  return cookieHeader.split(";").reduce((accumulator, part) => {
+    const [rawKey, ...rawValueParts] = part.trim().split("=");
+    if (!rawKey) return accumulator;
+    accumulator[rawKey] = decodeURIComponent(rawValueParts.join("=") || "");
+    return accumulator;
+  }, {});
+};
 
 export const requireAuth = async (req, res, next) => {
   try {
-    // Skip auth if no CLERK_SECRET_KEY configured
-    if (!process.env.CLERK_SECRET_KEY) {
-      console.log("[auth] No CLERK_SECRET_KEY, skipping auth");
-      req.auth = { userId: "test-user-dev" };
-      return next();
-    }
-
-    // Extract Bearer token from Authorization header
     const authHeader = req.headers.authorization;
+    const cookies = parseCookies(req.headers.cookie || "");
+    const sessionToken = authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7)
+      : cookies.mf_session;
 
-    // Allow request without token - set default userId for development
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("[auth] No Bearer token, using dev userId");
-      req.auth = { userId: "user_dev_test" };
-      return next();
+    if (!sessionToken) {
+      return res.status(401).json({ error: "Authentication required" });
     }
 
-    // Verify token with Clerk
-    const token = authHeader.substring(7);
-    console.log("[auth] Verifying token...");
+    const user = await getAppUserBySessionToken(sessionToken);
 
-    const decoded = await clerkClient.verifyToken(token);
-    const userId = decoded.sub || decoded.userId || decoded.id;
-
-    if (!userId) {
-      console.log("[auth] No userId in token, using dev userId");
-      req.auth = { userId: "user_dev_test" };
-      return next();
+    if (!user) {
+      return res.status(401).json({ error: "Session expired or invalid" });
     }
 
-    console.log("[auth] ✓ Token verified, userId:", userId);
-    req.auth = { userId };
+    req.auth = sanitizeAppUser(user);
+    req.auth.userId = user.login_id;
     next();
   } catch (err) {
-    console.error("[auth] Token verification failed:", err.message);
-    console.log("[auth] Using dev userId instead");
-    req.auth = { userId: "user_dev_test" };
-    next();
+    console.error("[auth] Authentication failed:", err.message);
+    return res.status(401).json({ error: "Authentication failed" });
   }
 };

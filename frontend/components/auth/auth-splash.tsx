@@ -6,7 +6,7 @@ const highlights = [
   {
     icon: Mic2,
     title: "Transcribe Meetings",
-    description: "Upload recordings and generate transcripts locally with your current setup.",
+    description: "Upload recordings and generate transcripts with your current setup.",
   },
   {
     icon: CheckSquare,
@@ -35,7 +35,7 @@ export function AuthSplash() {
         <div className="space-y-2">
           <h2 className="text-3xl font-semibold tracking-tight">Turn meetings into progress</h2>
           <p className="text-sm text-muted-foreground">
-            AI-assisted transcription and task extraction designed for fast execution.
+            AI-assisted transcription, task extraction, and role-based access for teams.
           </p>
         </div>
 

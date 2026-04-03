@@ -1,9 +1,142 @@
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 const supabaseUrl = process.env.SUPABASE_URL || "https://gyaxydhfengrmsylwrth.supabase.co";
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
+
+const AUTH_ITERATIONS = 120000;
+const AUTH_KEYLEN = 64;
+const AUTH_DIGEST = "sha512";
+const AUTH_TABLE = "team_members";
+const MANAGER_DOMAIN = "@company.com";
+
+const inferRoleFromLoginId = (loginId) => {
+  const normalizedLoginId = String(loginId || "").trim().toLowerCase();
+  return normalizedLoginId.endsWith(MANAGER_DOMAIN) ? "manager" : "employee";
+};
+
+const derivePasswordHash = (password, salt) => {
+  return crypto.pbkdf2Sync(password, salt, AUTH_ITERATIONS, AUTH_KEYLEN, AUTH_DIGEST).toString("hex");
+};
+
+export const hashPassword = (password) => {
+  const salt = crypto.randomBytes(16).toString("hex");
+  return `${salt}:${derivePasswordHash(password, salt)}`;
+};
+
+export const verifyPassword = (password, storedHash) => {
+  const [salt, digest] = String(storedHash || "").split(":");
+  if (!salt || !digest) return false;
+  return derivePasswordHash(password, salt) === digest;
+};
+
+export const createSessionToken = () => crypto.randomBytes(32).toString("hex");
+
+export const sanitizeAppUser = (user) => {
+  if (!user) return null;
+
+  const {
+    password_hash,
+    session_token,
+    session_expires_at,
+    slack_token,
+    jira_token,
+    jira_base_url,
+    clerk_user_id,
+    ...safeUser
+  } = user;
+  return safeUser;
+};
+
+export const getAppUserByLoginId = async (loginId) => {
+  const normalizedLoginId = String(loginId || "").trim().toLowerCase();
+  if (!normalizedLoginId) return null;
+
+  const { data, error } = await supabase
+    .from(AUTH_TABLE)
+    .select("*")
+    .eq("login_id", normalizedLoginId)
+    .single();
+
+  if (error && error.code !== "PGRST116") throw error;
+  return data || null;
+};
+
+export const getAppUserBySessionToken = async (sessionToken) => {
+  const normalizedToken = String(sessionToken || "").trim();
+  if (!normalizedToken) return null;
+
+  const { data, error } = await supabase
+    .from(AUTH_TABLE)
+    .select("*")
+    .eq("session_token", normalizedToken)
+    .gt("session_expires_at", new Date().toISOString())
+    .single();
+
+  if (error && error.code !== "PGRST116") throw error;
+  return data || null;
+};
+
+export const createAppUser = async ({ loginId, name, password, role }) => {
+  const normalizedLoginId = String(loginId || "").trim().toLowerCase();
+  const normalizedRole = inferRoleFromLoginId(normalizedLoginId) || String(role || "").trim().toLowerCase();
+  const passwordHash = hashPassword(password);
+
+  const { data, error } = await supabase
+    .from(AUTH_TABLE)
+    .insert([
+      {
+        workspace_id: normalizedLoginId,
+        login_id: normalizedLoginId,
+        name: String(name || normalizedLoginId).trim(),
+        email: normalizedLoginId,
+        role: normalizedRole,
+        password_hash: passwordHash,
+        onboarded: false,
+      },
+    ])
+    .select();
+
+  if (error) throw error;
+  return data?.[0] || null;
+};
+
+export const updateAppUserSession = async (loginId, sessionToken, sessionExpiresAt) => {
+  const normalizedLoginId = String(loginId || "").trim().toLowerCase();
+
+  const { data, error } = await supabase
+    .from(AUTH_TABLE)
+    .update({
+      session_token: sessionToken,
+      session_expires_at: sessionExpiresAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("login_id", normalizedLoginId)
+    .select();
+
+  if (error) throw error;
+  return data?.[0] || null;
+};
+
+export const clearAppUserSession = async (sessionToken) => {
+  const normalizedToken = String(sessionToken || "").trim();
+  if (!normalizedToken) return null;
+
+  const { data, error } = await supabase
+    .from(AUTH_TABLE)
+    .update({
+      session_token: null,
+      session_expires_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("session_token", normalizedToken)
+    .select();
+
+  if (error) throw error;
+  return data?.[0] || null;
+};
 
 
 
