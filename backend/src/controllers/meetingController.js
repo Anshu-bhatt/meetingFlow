@@ -15,6 +15,7 @@ export const processMeeting = async (req, res) => {
       meetingSummary: result.meetingSummary || "",
       totalTasks: result.totalTasks ?? (result.tasks || []).length,
       highPriorityCount: result.highPriorityCount ?? (result.tasks || []).filter((task) => task.priority === "High").length,
+      speakers_detected: result.speakers_detected || [],
     });
 
   } catch (error) {

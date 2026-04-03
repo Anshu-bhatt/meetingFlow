@@ -15,7 +15,7 @@ export function Navbar() {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30">
               <Zap className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-lg wm-gradient-text">ActionFlow AI</span>
+            <span className="font-semibold text-lg wm-gradient-text">MeetingFlow AI</span>
           </Link>
           
           {/* Navigation */}
