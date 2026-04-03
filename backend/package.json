@@ -13,7 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@clerk/clerk-sdk-node": "^4.13.23",
+    "@clerk/clerk-sdk-node": "^5.1.6",
     "@langchain/groq": "^1.1.5",
     "@supabase/supabase-js": "^2.101.1",
     "axios": "^1.14.0",
