@@ -12,9 +12,22 @@ dotenv.config({ path: "../.env" });
 
 const app = express();
 
+const defaultOrigins = ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"];
+const configuredOrigins = (process.env.FRONTEND_URL || "")
+	.split(",")
+	.map((origin) => origin.trim())
+	.filter(Boolean);
+const allowedOrigins = new Set([...defaultOrigins, ...configuredOrigins]);
+
 app.use(
 	cors({
-		origin: process.env.FRONTEND_URL || "http://localhost:3000",
+		origin: (origin, callback) => {
+			if (!origin || allowedOrigins.has(origin)) {
+				return callback(null, true);
+			}
+
+			return callback(new Error(`CORS blocked for origin: ${origin}`));
+		},
 		credentials: true,
 	})
 );

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { RedirectToSignIn, Show, useAuth } from "@clerk/nextjs"
+import { Show, useAuth } from "@clerk/nextjs"
 import Link from "next/link"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { StatsCards } from "@/components/dashboard/stats-cards"
@@ -285,7 +285,15 @@ export default function DashboardPage() {
       </Show>
 
       <Show when="signed-out">
-        <RedirectToSignIn />
+        <div className="flex min-h-screen items-center justify-center bg-background p-6">
+          <div className="rounded-xl border border-border bg-card p-6 text-center">
+            <h2 className="mb-2 text-lg font-semibold">Sign in required</h2>
+            <p className="mb-4 text-sm text-muted-foreground">Please sign in to access your dashboard.</p>
+            <Button asChild>
+              <Link href="/sign-in">Go to sign in</Link>
+            </Button>
+          </div>
+        </div>
       </Show>
     </>
   )
