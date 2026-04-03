@@ -9,18 +9,18 @@ export function Hero() {
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
       {/* Background gradient effect */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/30 via-background to-background" />
       
       <div className="container mx-auto px-6 py-24 relative z-10">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Left content */}
           <div className="space-y-8">
-            <Badge variant="secondary" className="w-fit px-4 py-1.5 text-sm font-medium">
-              AI-Powered Task Management
+            <Badge variant="secondary" className="wm-pill w-fit px-4 py-1.5 text-sm font-medium">
+              Watermelon UI Edition
             </Badge>
             
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-balance">
-              Turn Meetings into Action — <span className="text-primary">Instantly</span>
+              Turn Meetings into Action - <span className="wm-gradient-text">Instantly</span>
             </h1>
             
             <p className="text-lg md:text-xl text-muted-foreground max-w-lg leading-relaxed">
@@ -57,16 +57,16 @@ export function Hero() {
           {/* Right side - Mock Dashboard Preview */}
           <div className="relative hidden lg:block">
             <div className="absolute -inset-4 bg-primary/10 rounded-3xl blur-3xl" />
-            <div className="relative bg-card border border-border rounded-2xl p-6 shadow-2xl">
+            <div className="wm-card relative rounded-2xl p-6 shadow-2xl">
               {/* Mini dashboard header */}
               <div className="flex items-center justify-between pb-4 border-b border-border">
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
                     <span className="text-primary font-bold text-sm">AF</span>
                   </div>
                   <span className="font-semibold">ActionFlow AI</span>
                 </div>
-                <Badge variant="secondary" className="text-xs">Live Preview</Badge>
+                <Badge variant="secondary" className="wm-pill text-xs">Live Preview</Badge>
               </div>
               
               {/* Stats preview */}

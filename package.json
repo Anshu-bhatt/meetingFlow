@@ -1,5 +1,16 @@
 {
   "private": true,
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c green,cyan \"npm run dev --workspace backend\" \"npm run dev --workspace frontend\"",
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "dev:stop": "kill-port 3000 5000",
+    "dev:fresh": "npm run dev:stop ; npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "kill-port": "^2.0.1"
+  },
   "workspaces": [
     "frontend",
     "backend"
