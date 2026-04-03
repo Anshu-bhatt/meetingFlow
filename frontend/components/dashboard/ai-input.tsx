@@ -27,10 +27,10 @@ Example:
 "John mentioned we need to review the Q4 budget by Friday. Sarah will schedule a follow-up call with the client next week. Mike should update the project timeline before the next sprint planning."`
 
   return (
-    <Card className="bg-card border-border">
+    <Card className="wm-card">
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-xl bg-primary/15 border border-primary/35 flex items-center justify-center">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div>
@@ -44,12 +44,12 @@ Example:
           placeholder={placeholder}
           value={transcript}
           onChange={(e) => setTranscript(e.target.value)}
-          className="min-h-[180px] bg-secondary/50 border-border resize-none"
+          className="min-h-[180px] bg-secondary/50 border-border/70 resize-none"
         />
         <Button 
           onClick={handleSubmit} 
           disabled={!transcript.trim() || isLoading}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto bg-gradient-to-r from-primary to-accent text-primary-foreground"
         >
           {isLoading ? (
             <>

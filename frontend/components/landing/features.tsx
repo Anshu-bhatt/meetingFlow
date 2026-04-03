@@ -39,9 +39,9 @@ export function Features() {
         
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
           {features.map((feature, i) => (
-            <Card key={i} className="bg-card/50 border-border/50 hover:border-primary/30 hover:bg-card/80 transition-all group">
+            <Card key={i} className="wm-card hover:border-primary/60 hover:-translate-y-1 transition-all group">
               <CardHeader>
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                <div className="h-12 w-12 rounded-xl bg-primary/15 flex items-center justify-center mb-4 group-hover:bg-primary/30 transition-colors border border-primary/35">
                   <feature.icon className="h-6 w-6 text-primary" />
                 </div>
                 <CardTitle className="text-lg">{feature.title}</CardTitle>

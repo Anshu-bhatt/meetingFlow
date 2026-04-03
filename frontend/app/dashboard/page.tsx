@@ -7,6 +7,7 @@ import { StatsCards } from "@/components/dashboard/stats-cards"
 import { AIInput } from "@/components/dashboard/ai-input"
 import { ExtractedTasks } from "@/components/dashboard/extracted-tasks"
 import { TaskTable } from "@/components/dashboard/task-table"
+import { BackButton } from "@/components/shared/back-button"
 import { toast } from "sonner"
 import type { Task } from "@/lib/types"
 
@@ -185,12 +186,15 @@ export default function DashboardPage() {
   return (
     <>
       <Show when="signed-in">
-        <div className="flex min-h-screen bg-background">
+        <div className="wm-shell flex min-h-screen bg-background">
           <DashboardSidebar />
 
           <main className="flex-1 ml-64">
             <div className="p-8">
               <div className="mb-8">
+                <div className="mb-4">
+                  <BackButton fallbackHref="/" label="Back to Home" />
+                </div>
                 <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
                 <p className="text-muted-foreground">
                   Extract and manage tasks from your meetings
