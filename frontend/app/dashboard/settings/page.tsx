@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { DashboardPageHeader } from "@/components/dashboard/dashboard-page-header"
 import { BellRing, Bot, Link2, ShieldCheck, Slack, Settings2, Smartphone, Zap } from "lucide-react"
 
 const integrations = [
@@ -34,24 +35,24 @@ const toggles = [
 
 export default function SettingsPage() {
   return (
-    <main className="min-h-screen bg-background px-6 py-8">
+    <div className="px-6 py-8">
       <div className="mx-auto max-w-7xl space-y-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <Badge variant="secondary" className="w-fit">Workspace settings</Badge>
-            <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-            <p className="max-w-2xl text-muted-foreground">
-              This screen will collect integrations, automation rules, account preferences, and security controls.
-            </p>
-          </div>
-          <Button className="gap-2">
-            <Settings2 className="h-4 w-4" />
-            Save changes
-          </Button>
-        </div>
+        <DashboardPageHeader
+          backHref="/dashboard"
+          backLabel="Back"
+          title="Settings"
+          description="Integrations, automation rules, account preferences, and security controls."
+          badge={<Badge variant="secondary" className="w-fit">Workspace settings</Badge>}
+          end={
+            <Button className="gap-2">
+              <Settings2 className="h-4 w-4" />
+              Save changes
+            </Button>
+          }
+        />
 
         <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-          <Card className="border-border bg-card">
+          <Card className="wm-card border-border bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Zap className="h-5 w-5 text-primary" />
@@ -61,9 +62,12 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {integrations.map((integration) => (
-                <div key={integration.title} className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-secondary/30 p-4 md:flex-row md:items-center md:justify-between">
+                <div
+                  key={integration.title}
+                  className="interactive-surface flex flex-col gap-4 rounded-2xl border-2 border-border/80 bg-secondary/30 p-4 md:flex-row md:items-center md:justify-between"
+                >
                   <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
                       <integration.icon className="h-5 w-5 text-primary" />
                     </div>
                     <div>
@@ -78,7 +82,7 @@ export default function SettingsPage() {
           </Card>
 
           <div className="space-y-6">
-            <Card className="border-border bg-card">
+            <Card className="wm-card border-border bg-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <BellRing className="h-5 w-5 text-primary" />
@@ -88,7 +92,10 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
                 {toggles.map((toggle) => (
-                  <div key={toggle} className="flex items-center justify-between rounded-xl border border-border/60 bg-secondary/20 px-4 py-3">
+                  <div
+                    key={toggle}
+                    className="interactive-surface flex items-center justify-between rounded-xl border-2 border-border/80 bg-secondary/20 px-4 py-3"
+                  >
                     <span>{toggle}</span>
                     <span className="text-xs uppercase tracking-wide text-muted-foreground">Preview</span>
                   </div>
@@ -96,7 +103,7 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-border bg-card">
+            <Card className="wm-card border-border bg-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <ShieldCheck className="h-5 w-5 text-primary" />
@@ -109,12 +116,14 @@ export default function SettingsPage() {
                 <p>• Team membership and workspace roles</p>
                 <p>• Audit trail for task changes</p>
                 <Separator />
-                <p className="flex items-center gap-2 text-foreground"><Smartphone className="h-4 w-4 text-primary" /> Mobile-ready reminders and notifications</p>
+                <p className="flex items-center gap-2 text-foreground">
+                  <Smartphone className="h-4 w-4 text-primary" /> Mobile-ready reminders and notifications
+                </p>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

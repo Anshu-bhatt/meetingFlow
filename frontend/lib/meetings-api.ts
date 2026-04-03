@@ -26,6 +26,7 @@ const requestJson = async <T>(path: string, options: RequestOptions = {}): Promi
     method,
     headers,
     body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+    cache: method === "GET" || !method ? "no-store" : undefined,
   })
 
   if (!response.ok) {

@@ -1,17 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Show, useAuth } from "@clerk/nextjs"
-import Link from "next/link"
-import { DashboardSidebar } from "@/components/dashboard/sidebar"
+import { useAuth } from "@clerk/nextjs"
+import { DashboardPageHeader } from "@/components/dashboard/dashboard-page-header"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { AIInput } from "@/components/dashboard/ai-input"
 import AudioUpload from "@/components/dashboard/audio-upload"
 import { ExtractedTasks } from "@/components/dashboard/extracted-tasks"
 import { TaskTable } from "@/components/dashboard/task-table"
-import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { ArrowLeft } from "lucide-react"
 import type { Task } from "@/lib/types"
 import {
   deleteTaskById,
@@ -19,6 +16,7 @@ import {
   saveMeetingWithTasks,
   updateTaskById,
 } from "@/lib/meetings-api"
+import { emitWorkspaceDataChanged } from "@/lib/workspace-sync"
 
 type ExtractResponse = {
   tasks: Task[]
@@ -28,10 +26,52 @@ type ExtractResponse = {
   speakers_detected?: string[]
 }
 
-export default function DashboardPage() {
-  const { getToken } = useAuth()
+type ExtractionDraft = {
+  transcript: string
+  tasks: Task[]
+  meetingSummary: string | null
+  extractionStats: { totalTasks: number; highPriorityCount: number } | null
+  speakersDetected: string[]
+}
 
-  const TRANSCRIPT_KEY = "meetingflow.latestTranscript"
+const TRANSCRIPT_KEY = "meetingflow.latestTranscript"
+const EXTRACTION_DRAFT_KEY = "meetingflow.latestExtractionDraft"
+
+const readExtractionDraft = (): ExtractionDraft | null => {
+  try {
+    const raw = window.localStorage.getItem(EXTRACTION_DRAFT_KEY)
+    if (!raw) return null
+
+    const draft = JSON.parse(raw) as Partial<ExtractionDraft>
+
+    return {
+      transcript: typeof draft.transcript === "string" ? draft.transcript : "",
+      tasks: Array.isArray(draft.tasks) ? draft.tasks : [],
+      meetingSummary: typeof draft.meetingSummary === "string" ? draft.meetingSummary : null,
+      extractionStats: draft.extractionStats
+        ? {
+            totalTasks: draft.extractionStats.totalTasks ?? 0,
+            highPriorityCount: draft.extractionStats.highPriorityCount ?? 0,
+          }
+        : null,
+      speakersDetected: Array.isArray(draft.speakersDetected) ? draft.speakersDetected : [],
+    }
+  } catch (error) {
+    console.error("Error loading extracted task draft:", error)
+    return null
+  }
+}
+
+const persistExtractionDraft = (draft: ExtractionDraft) => {
+  try {
+    window.localStorage.setItem(EXTRACTION_DRAFT_KEY, JSON.stringify(draft))
+  } catch (error) {
+    console.error("Error caching extracted task draft:", error)
+  }
+}
+
+export default function DashboardPage() {
+  const { getToken, isLoaded, userId } = useAuth()
 
   const [savedTasks, setSavedTasks] = useState<Task[]>([])
   const [extractedTasks, setExtractedTasks] = useState<Task[]>([])
@@ -62,12 +102,26 @@ export default function DashboardPage() {
   }, [getToken])
 
   useEffect(() => {
+    if (!isLoaded || !userId) {
+      return
+    }
     void refreshSavedTasks()
-  }, [refreshSavedTasks])
+  }, [isLoaded, userId, refreshSavedTasks])
 
   useEffect(() => {
     try {
       const latestTranscript = window.localStorage.getItem(TRANSCRIPT_KEY)
+      const latestDraft = readExtractionDraft()
+
+      if (latestDraft) {
+        setUploadedTranscript(latestDraft.transcript || latestTranscript || "")
+        setExtractedTasks(latestDraft.tasks)
+        setExtractionSummary(latestDraft.meetingSummary)
+        setExtractionStats(latestDraft.extractionStats)
+        setSpeakersDetected(latestDraft.speakersDetected)
+        return
+      }
+
       if (latestTranscript?.trim()) {
         setUploadedTranscript(latestTranscript)
       }
@@ -90,10 +144,6 @@ export default function DashboardPage() {
 
   const handleExtract = useCallback(async (transcript: string) => {
     setIsLoading(true)
-    setExtractedTasks([])
-    setExtractionSummary(null)
-    setExtractionStats(null)
-    setSpeakersDetected([])
 
     try {
       const token = await getToken().catch(() => null)
@@ -133,6 +183,17 @@ export default function DashboardPage() {
         console.error("Error caching transcript:", error)
       }
 
+      persistExtractionDraft({
+        transcript,
+        tasks: uniqueTasks,
+        meetingSummary: data.meetingSummary || null,
+        extractionStats: {
+          totalTasks: data.totalTasks ?? uniqueTasks.length,
+          highPriorityCount: data.highPriorityCount ?? uniqueTasks.filter((task) => task.priority === "High").length,
+        },
+        speakersDetected: data.speakers_detected || [],
+      })
+
       if (!uniqueTasks.length) {
         toast.info("No clear tasks found", {
           description: "Try adding more explicit action items, owners, and deadlines.",
@@ -140,7 +201,6 @@ export default function DashboardPage() {
         return
       }
 
-      // Auto-persist extracted tasks so Tasks and Meetings pages reflect immediately.
       await saveMeetingWithTasks(
         {
           title: `Meeting - ${new Date().toLocaleString()}`,
@@ -151,6 +211,7 @@ export default function DashboardPage() {
       )
 
       await refreshSavedTasks()
+      emitWorkspaceDataChanged()
 
       toast.success(`${uniqueTasks.length} tasks extracted and saved`, {
         description: "Tasks are now visible on Dashboard, Tasks, and Meetings pages.",
@@ -166,15 +227,33 @@ export default function DashboardPage() {
   }, [getToken, makeTaskFingerprint, refreshSavedTasks])
 
   const handleUpdateExtracted = useCallback((id: string, updates: Partial<Task>) => {
-    setExtractedTasks((previous) =>
-      previous.map((task) => task.id === id ? { ...task, ...updates } : task),
-    )
-  }, [])
+    setExtractedTasks((previous) => {
+      const nextTasks = previous.map((task) => task.id === id ? { ...task, ...updates } : task)
+      persistExtractionDraft({
+        transcript: uploadedTranscript,
+        tasks: nextTasks,
+        meetingSummary: extractionSummary,
+        extractionStats,
+        speakersDetected,
+      })
+      return nextTasks
+    })
+  }, [extractionStats, extractionSummary, speakersDetected, uploadedTranscript])
 
   const handleDeleteExtracted = useCallback((id: string) => {
-    setExtractedTasks((previous) => previous.filter((task) => task.id !== id))
+    setExtractedTasks((previous) => {
+      const nextTasks = previous.filter((task) => task.id !== id)
+      persistExtractionDraft({
+        transcript: uploadedTranscript,
+        tasks: nextTasks,
+        meetingSummary: extractionSummary,
+        extractionStats,
+        speakersDetected,
+      })
+      return nextTasks
+    })
     toast.info("Task removed")
-  }, [])
+  }, [extractionStats, extractionSummary, speakersDetected, uploadedTranscript])
 
   const handleSaveAll = useCallback(async () => {
     if (!extractedTasks.length) {
@@ -205,6 +284,15 @@ export default function DashboardPage() {
 
       setExtractedTasks([])
       await refreshSavedTasks()
+      emitWorkspaceDataChanged()
+
+      persistExtractionDraft({
+        transcript,
+        tasks: extractedTasks,
+        meetingSummary: extractionSummary,
+        extractionStats,
+        speakersDetected,
+      })
 
       toast.success("All tasks saved", {
         description: "Tasks have been synced across Dashboard, Tasks, and Meetings.",
@@ -217,7 +305,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [extractedTasks, getToken, refreshSavedTasks, uploadedTranscript])
+  }, [extractedTasks, extractionStats, extractionSummary, getToken, refreshSavedTasks, speakersDetected, uploadedTranscript])
 
   const handleToggleComplete = useCallback(async (id: string) => {
     const current = savedTasks.find((task) => task.id === id)
@@ -232,6 +320,7 @@ export default function DashboardPage() {
     try {
       const token = await getToken().catch(() => null)
       await updateTaskById(id, { completed: nextValue }, token)
+      emitWorkspaceDataChanged()
     } catch (error) {
       setSavedTasks((previous) =>
         previous.map((task) => task.id === id ? { ...task, completed: current.completed } : task),
@@ -249,6 +338,7 @@ export default function DashboardPage() {
     try {
       const token = await getToken().catch(() => null)
       await deleteTaskById(id, token)
+      emitWorkspaceDataChanged()
       toast.info("Task deleted")
     } catch (error) {
       setSavedTasks(previousTasks)
@@ -270,84 +360,48 @@ export default function DashboardPage() {
   }, [handleExtract])
 
   return (
-    <>
-      <Show when="signed-in">
-        <div className="flex min-h-screen bg-background">
-          <DashboardSidebar />
+    <div className="min-h-screen w-full px-6 py-6 lg:px-10 lg:py-8">
+      <div className="w-full space-y-8">
+        <DashboardPageHeader
+          backHref="/"
+          backLabel="Back"
+          title="MeetingFlow Dashboard"
+          description="Upload meeting files, extract tasks, and track execution in one place"
+        />
 
-          <main className="flex-1 ml-64">
-            <div className="p-8">
-              <div className="mb-8">
-                <div className="mb-4">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/">
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
-                    </Link>
-                  </Button>
-                </div>
-                <h1 className="text-2xl font-bold mb-1">MeetingFlow Dashboard</h1>
-                <p className="text-muted-foreground">
-                  Upload meeting files, extract tasks, and track execution in one place
-                </p>
-              </div>
+        <StatsCards stats={stats} />
 
-              <div className="mb-8">
-                <StatsCards stats={stats} />
-              </div>
+        <AudioUpload onTranscript={handleTranscriptUpload} />
 
-              <div className="mb-8">
-                <AudioUpload onTranscript={handleTranscriptUpload} />
-              </div>
+        <AIInput
+          onExtract={handleExtract}
+          isLoading={isLoading}
+          initialTranscript={uploadedTranscript}
+        />
 
-              <div className="mb-8">
-                <AIInput
-                  onExtract={handleExtract}
-                  isLoading={isLoading}
-                  initialTranscript={uploadedTranscript}
-                />
-              </div>
+        {(extractedTasks.length > 0 || extractionSummary) && (
+          <ExtractedTasks
+            tasks={extractedTasks}
+            meetingSummary={extractionSummary}
+            totalTasks={extractionStats?.totalTasks ?? extractedTasks.length}
+            highPriorityCount={extractionStats?.highPriorityCount ?? extractedTasks.filter((task) => task.priority === "High").length}
+            speakersDetected={speakersDetected}
+            onUpdateTask={handleUpdateExtracted}
+            onDeleteTask={handleDeleteExtracted}
+            onSaveAll={handleSaveAll}
+          />
+        )}
 
-              {(extractedTasks.length > 0 || extractionSummary) && (
-                <div className="mb-8">
-                  <ExtractedTasks
-                    tasks={extractedTasks}
-                    meetingSummary={extractionSummary}
-                    totalTasks={extractionStats?.totalTasks ?? extractedTasks.length}
-                    highPriorityCount={extractionStats?.highPriorityCount ?? extractedTasks.filter((task) => task.priority === "High").length}
-                    speakersDetected={speakersDetected}
-                    onUpdateTask={handleUpdateExtracted}
-                    onDeleteTask={handleDeleteExtracted}
-                    onSaveAll={handleSaveAll}
-                  />
-                </div>
-              )}
+        <TaskTable
+          tasks={savedTasks}
+          onToggleComplete={handleToggleComplete}
+          onDeleteTask={handleDeleteSaved}
+        />
 
-              <TaskTable
-                tasks={savedTasks}
-                onToggleComplete={handleToggleComplete}
-                onDeleteTask={handleDeleteSaved}
-              />
-
-              {isSyncingTasks && (
-                <p className="mt-3 text-xs text-muted-foreground">Refreshing tasks...</p>
-              )}
-            </div>
-          </main>
-        </div>
-      </Show>
-
-      <Show when="signed-out">
-        <div className="flex min-h-screen items-center justify-center bg-background p-6">
-          <div className="rounded-xl border border-border bg-card p-6 text-center">
-            <h2 className="mb-2 text-lg font-semibold">Sign in required</h2>
-            <p className="mb-4 text-sm text-muted-foreground">Please sign in to access your dashboard.</p>
-            <Button asChild>
-              <Link href="/sign-in">Go to sign in</Link>
-            </Button>
-          </div>
-        </div>
-      </Show>
-    </>
+        {isSyncingTasks && (
+          <p className="text-xs text-muted-foreground">Refreshing tasks...</p>
+        )}
+      </div>
+    </div>
   )
 }

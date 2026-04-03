@@ -72,14 +72,22 @@ export const getTasksByMeeting = async (meetingId) => {
 };
 
 export const getTasksByWorkspace = async (workspaceId) => {
+  // Load meetings for this workspace, then tasks by meeting ids. This avoids
+  // fragile PostgREST embed/join naming and matches how the dashboard saves data.
+  const meetings = await getMeetings(workspaceId);
+  const meetingIds = meetings.map((m) => m.id).filter(Boolean);
+  if (meetingIds.length === 0) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("tasks")
-    .select("*, meetings!inner(workspace_id)")
-    .eq("meetings.workspace_id", workspaceId)
+    .select("*")
+    .in("meeting_id", meetingIds)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return (data || []).map(({ meetings, ...task }) => task);
+  return data || [];
 };
 
 export const updateTask = async (taskId, updates) => {

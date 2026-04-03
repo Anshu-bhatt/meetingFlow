@@ -22,7 +22,7 @@ const highlights = [
 
 export function AuthSplash() {
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-8 shadow-2xl">
+    <section className="interactive-surface relative overflow-hidden rounded-3xl border-2 border-border bg-card p-8 shadow-2xl">
       <div className="pointer-events-none absolute -right-24 -top-20 h-52 w-52 rounded-full bg-primary/20 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-blue-500/10 blur-3xl" />
 
@@ -41,7 +41,7 @@ export function AuthSplash() {
 
         <div className="space-y-4">
           {highlights.map((item) => (
-            <div key={item.title} className="rounded-2xl border border-border/70 bg-background/70 p-4">
+            <div key={item.title} className="interactive-surface rounded-2xl border-2 border-border/80 bg-background/70 p-4">
               <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <item.icon className="h-4 w-4" />
               </div>

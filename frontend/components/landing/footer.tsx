@@ -1,9 +1,10 @@
 import { Zap } from "lucide-react"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 
-export function Footer() {
+export function Footer({ className }: { className?: string }) {
   return (
-    <footer className="py-12 border-t border-border">
+    <footer className={cn("relative border-t border-border py-12", className)}>
       <div className="container mx-auto px-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           {/* Logo */}
