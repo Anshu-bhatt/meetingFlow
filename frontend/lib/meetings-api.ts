@@ -1,4 +1,5 @@
 import type { Task } from "@/lib/types"
+import { getOrCreateWorkspaceId } from "@/lib/workspace-id"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
@@ -11,6 +12,11 @@ type RequestOptions = {
 const requestJson = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
   const { method = "GET", token, body } = options
   const headers: Record<string, string> = {}
+  const workspaceId = getOrCreateWorkspaceId()
+
+  if (workspaceId) {
+    headers["x-workspace-id"] = workspaceId
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`
@@ -110,6 +116,11 @@ export const fetchAllTasks = async (token?: string | null): Promise<Task[]> => {
 
     return taskLists.flat().map(mapBackendTaskToUiTask)
   }
+}
+
+export const fetchWorkspaceTasksRaw = async (token?: string | null): Promise<BackendTask[]> => {
+  const response = await requestJson<{ tasks: BackendTask[] }>("/api/tasks", { token })
+  return Array.isArray(response.tasks) ? response.tasks : []
 }
 
 export const saveMeetingWithTasks = async (

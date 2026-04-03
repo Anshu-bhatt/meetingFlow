@@ -1,17 +1,17 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useAuth } from "@clerk/nextjs"
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-page-header"
 import { TaskTable } from "@/components/dashboard/task-table"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import type { Task } from "@/lib/types"
 import { deleteTaskById, fetchAllTasks, updateTaskById } from "@/lib/meetings-api"
 import { WORKSPACE_DATA_CHANGED_EVENT, emitWorkspaceDataChanged } from "@/lib/workspace-sync"
+import { useLocalAuth } from "@/lib/local-auth"
 import { toast } from "sonner"
 
 export default function TasksPage() {
-  const { getToken, isLoaded, userId } = useAuth()
+  const { getToken, isLoaded, userId } = useLocalAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(false)
 

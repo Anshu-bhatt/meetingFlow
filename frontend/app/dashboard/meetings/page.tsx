@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@clerk/nextjs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,8 +9,9 @@ import { Separator } from "@/components/ui/separator"
 import AudioUpload from "@/components/dashboard/audio-upload"
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-page-header"
 import { AudioLines, CalendarDays, Mic, PlayCircle, Sparkles, Upload } from "lucide-react"
-import { fetchMeetings, fetchTasksForMeeting, type BackendMeeting } from "@/lib/meetings-api"
+import { fetchMeetings, fetchWorkspaceTasksRaw, type BackendMeeting } from "@/lib/meetings-api"
 import { WORKSPACE_DATA_CHANGED_EVENT } from "@/lib/workspace-sync"
+import { useLocalAuth } from "@/lib/local-auth"
 import { toast } from "sonner"
 
 type MeetingSummary = {
@@ -31,7 +31,7 @@ const meetingFlow = [
 
 export default function MeetingsPage() {
   const router = useRouter()
-  const { getToken, isLoaded, userId } = useAuth()
+  const { getToken, isLoaded, userId } = useLocalAuth()
   const [transcript, setTranscript] = useState("")
   const [meetings, setMeetings] = useState<MeetingSummary[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
@@ -41,29 +41,21 @@ export default function MeetingsPage() {
 
     try {
       const token = await getToken().catch(() => null)
-      const rows = await fetchMeetings(token)
+      const [rows, allTasks] = await Promise.all([fetchMeetings(token), fetchWorkspaceTasksRaw(token)])
 
-      const withTaskCounts = await Promise.all(
-        rows.map(async (meeting: BackendMeeting) => {
-          try {
-            const tasks = await fetchTasksForMeeting(meeting.id, token)
-            return {
-              id: meeting.id,
-              title: meeting.title || "Untitled meeting",
-              createdAt: meeting.created_at || "",
-              taskCount: tasks.length,
-            }
-          } catch (error) {
-            console.error(`Failed loading tasks for meeting ${meeting.id}:`, error)
-            return {
-              id: meeting.id,
-              title: meeting.title || "Untitled meeting",
-              createdAt: meeting.created_at || "",
-              taskCount: 0,
-            }
-          }
-        }),
-      )
+      const taskCountsByMeeting = allTasks.reduce<Record<string, number>>((acc, task) => {
+        if (task.meeting_id) {
+          acc[task.meeting_id] = (acc[task.meeting_id] || 0) + 1
+        }
+        return acc
+      }, {})
+
+      const withTaskCounts = rows.map((meeting: BackendMeeting) => ({
+        id: meeting.id,
+        title: meeting.title || "Untitled meeting",
+        createdAt: meeting.created_at || "",
+        taskCount: taskCountsByMeeting[meeting.id] || 0,
+      }))
 
       setMeetings(withTaskCounts)
     } catch (error) {

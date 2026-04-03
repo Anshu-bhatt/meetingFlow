@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { clearWorkspaceId, getOrCreateWorkspaceId } from "@/lib/workspace-id"
 import { 
   ArrowLeft,
   LayoutDashboard, 
@@ -11,15 +12,9 @@ import {
   CalendarDays, 
   Settings,
   Zap,
-  LogOut
+  RefreshCcw
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-
-type AuthUser = {
-  login_id: string
-  name: string
-  role: string
-}
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -30,41 +25,21 @@ const navItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const [user, setUser] = useState<AuthUser | null>(null)
+  const [workspaceId, setWorkspaceId] = useState("workspace-server")
 
   useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/me`, {
-          credentials: "include",
-        })
-        const data = await response.json().catch(() => ({} as { user?: AuthUser | null }))
-        setUser(data.user ?? null)
-      } catch (error) {
-        console.error("[Sidebar] Session lookup failed:", error)
-        setUser(null)
-      }
-    }
-
-    loadSession()
+    setWorkspaceId(getOrCreateWorkspaceId())
   }, [])
 
-  const fullName = user?.name || user?.login_id || "User"
-  const email = user?.login_id || ""
-  const initials = fullName
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() || "U"
-
-  const handleSignOut = async () => {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    })
-    window.location.href = "/"
-  }
+  const fullName = "Local Workspace"
+  const email = workspaceId
+  const initials =
+    fullName
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "U"
   
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
@@ -121,9 +96,16 @@ export function DashboardSidebar() {
             <p className="text-xs text-sidebar-foreground/60 truncate">{email}</p>
           </div>
         </div>
-        <Button variant="ghost" className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground" onClick={handleSignOut}>
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign out
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground"
+          onClick={() => {
+            clearWorkspaceId()
+            window.location.reload()
+          }}
+        >
+          <RefreshCcw className="h-4 w-4 mr-2" />
+          Reset workspace id
         </Button>
       </div>
     </aside>

@@ -112,7 +112,7 @@ export default function SettingsPage() {
                 <CardDescription>Static placeholders for auth and team management</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 text-sm text-muted-foreground">
-                <p>• Custom session authentication for sign-in and sign-up</p>
+                <p>• Local workspace identity (no external auth provider)</p>
                 <p>• Team membership and workspace roles</p>
                 <p>• Audit trail for task changes</p>
                 <Separator />

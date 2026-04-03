@@ -1,122 +1,127 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { DashboardSidebar } from "@/components/dashboard/sidebar"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { DashboardPageHeader } from "@/components/dashboard/dashboard-page-header"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { AIInput } from "@/components/dashboard/ai-input"
 import AudioUpload from "@/components/dashboard/audio-upload"
 import { ExtractedTasks } from "@/components/dashboard/extracted-tasks"
 import { TaskTable } from "@/components/dashboard/task-table"
-import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { ArrowLeft } from "lucide-react"
 import type { Task } from "@/lib/types"
+import {
+  deleteTaskById,
+  fetchAllTasks,
+  saveMeetingWithTasks,
+  updateTaskById,
+} from "@/lib/meetings-api"
+import { emitWorkspaceDataChanged } from "@/lib/workspace-sync"
+import { useLocalAuth } from "@/lib/local-auth"
 
-type AuthUser = {
-  login_id: string
-  name: string
-  role: string
+type ExtractResponse = {
+  tasks: Task[]
+  meetingSummary?: string
+  totalTasks?: number
+  highPriorityCount?: number
+  speakers_detected?: string[]
+}
+
+type ExtractionDraft = {
+  transcript: string
+  tasks: Task[]
+  meetingSummary: string | null
+  extractionStats: { totalTasks: number; highPriorityCount: number } | null
+  speakersDetected: string[]
+}
+
+const TRANSCRIPT_KEY = "meetingflow.latestTranscript"
+const EXTRACTION_DRAFT_KEY = "meetingflow.latestExtractionDraft"
+
+const readExtractionDraft = (): ExtractionDraft | null => {
+  try {
+    const raw = window.localStorage.getItem(EXTRACTION_DRAFT_KEY)
+    if (!raw) return null
+
+    const draft = JSON.parse(raw) as Partial<ExtractionDraft>
+
+    return {
+      transcript: typeof draft.transcript === "string" ? draft.transcript : "",
+      tasks: Array.isArray(draft.tasks) ? draft.tasks : [],
+      meetingSummary: typeof draft.meetingSummary === "string" ? draft.meetingSummary : null,
+      extractionStats: draft.extractionStats
+        ? {
+            totalTasks: draft.extractionStats.totalTasks ?? 0,
+            highPriorityCount: draft.extractionStats.highPriorityCount ?? 0,
+          }
+        : null,
+      speakersDetected: Array.isArray(draft.speakersDetected) ? draft.speakersDetected : [],
+    }
+  } catch (error) {
+    console.error("Error loading extracted task draft:", error)
+    return null
+  }
+}
+
+const persistExtractionDraft = (draft: ExtractionDraft) => {
+  try {
+    window.localStorage.setItem(EXTRACTION_DRAFT_KEY, JSON.stringify(draft))
+  } catch (error) {
+    console.error("Error caching extracted task draft:", error)
+  }
 }
 
 export default function DashboardPage() {
-  const router = useRouter()
+  const { getToken, isLoaded, userId } = useLocalAuth()
 
-  const STORAGE_KEY = "meetingflow.savedTasks"
-  const TRANSCRIPT_KEY = "meetingflow.latestTranscript"
-
-  const [savedTasks, setSavedTasks] = useState<Task[]>(() => {
-    if (typeof window === "undefined") {
-      return []
-    }
-
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
-      if (!raw) {
-        return []
-      }
-
-      const parsed = JSON.parse(raw) as Task[]
-      return Array.isArray(parsed) ? parsed : []
-    } catch (error) {
-      console.error("Error loading saved tasks:", error)
-      return []
-    }
-  })
-
+  const [savedTasks, setSavedTasks] = useState<Task[]>([])
   const [extractedTasks, setExtractedTasks] = useState<Task[]>([])
   const [extractionSummary, setExtractionSummary] = useState<string | null>(null)
   const [extractionStats, setExtractionStats] = useState<{ totalTasks: number; highPriorityCount: number } | null>(null)
   const [speakersDetected, setSpeakersDetected] = useState<string[]>([])
   const [uploadedTranscript, setUploadedTranscript] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [authState, setAuthState] = useState<"loading" | "authenticated" | "unauthenticated">("loading")
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
-
-  useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/me`, {
-          credentials: "include",
-        })
-        const data = await response.json().catch(() => ({} as { user?: AuthUser | null }))
-
-        if (!data.user) {
-          setAuthState("unauthenticated")
-          router.replace("/sign-in")
-          return
-        }
-
-        if (data.user.role === "employee") {
-          router.replace("/employee/dashboard")
-          return
-        }
-
-        setCurrentUser(data.user)
-        setAuthState("authenticated")
-      } catch (error) {
-        console.error("[Dashboard] Session lookup failed:", error)
-        setAuthState("unauthenticated")
-        router.replace("/sign-in")
-      }
-    }
-
-    loadSession()
-  }, [router])
+  const [isSyncingTasks, setIsSyncingTasks] = useState(false)
 
   const makeTaskFingerprint = useCallback((task: Pick<Task, "title" | "assignee" | "deadline">) => {
     return `${task.title.trim().toLowerCase()}|${(task.assignee || "").trim().toLowerCase()}|${task.deadline ?? ""}`
   }, [])
 
-  useEffect(() => {
-    try {
-      const existingKeys = new Set<string>()
-      const deduped = savedTasks.filter((task) => {
-        const key = makeTaskFingerprint(task)
-        if (existingKeys.has(key)) return false
-        existingKeys.add(key)
-        return true
-      })
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(deduped))
-    } catch (error) {
-      console.error("Error saving tasks:", error)
-    }
-  }, [savedTasks, makeTaskFingerprint])
+  const refreshSavedTasks = useCallback(async () => {
+    setIsSyncingTasks(true)
 
-  const stats = {
-    total: savedTasks.length,
-    completed: savedTasks.filter(t => t.completed).length,
-    pending: savedTasks.filter(t => !t.completed).length,
-    overdue: savedTasks.filter(t => {
-      if (t.completed || !t.deadline) return false
-      return new Date(t.deadline) < new Date()
-    }).length,
-  }
+    try {
+      const token = await getToken().catch(() => null)
+      const tasks = await fetchAllTasks(token)
+      setSavedTasks(tasks)
+    } catch (error) {
+      console.error("Failed loading saved tasks:", error)
+      toast.error("Could not load saved tasks")
+    } finally {
+      setIsSyncingTasks(false)
+    }
+  }, [getToken])
+
+  useEffect(() => {
+    if (!isLoaded || !userId) {
+      return
+    }
+    void refreshSavedTasks()
+  }, [isLoaded, userId, refreshSavedTasks])
 
   useEffect(() => {
     try {
       const latestTranscript = window.localStorage.getItem(TRANSCRIPT_KEY)
+      const latestDraft = readExtractionDraft()
+
+      if (latestDraft) {
+        setUploadedTranscript(latestDraft.transcript || latestTranscript || "")
+        setExtractedTasks(latestDraft.tasks)
+        setExtractionSummary(latestDraft.meetingSummary)
+        setExtractionStats(latestDraft.extractionStats)
+        setSpeakersDetected(latestDraft.speakersDetected)
+        return
+      }
+
       if (latestTranscript?.trim()) {
         setUploadedTranscript(latestTranscript)
       }
@@ -125,46 +130,40 @@ export default function DashboardPage() {
     }
   }, [])
 
+  const stats = useMemo(() => {
+    return {
+      total: savedTasks.length,
+      completed: savedTasks.filter((task) => task.completed).length,
+      pending: savedTasks.filter((task) => !task.completed).length,
+      overdue: savedTasks.filter((task) => {
+        if (task.completed || !task.deadline) return false
+        return new Date(task.deadline) < new Date()
+      }).length,
+    }
+  }, [savedTasks])
+
   const handleExtract = useCallback(async (transcript: string) => {
-    console.log("[Dashboard] handleExtract called with transcript length:", transcript.length)
     setIsLoading(true)
-    setExtractedTasks([])
-    setExtractionSummary(null)
-    setExtractionStats(null)
-    setSpeakersDetected([])
 
     try {
+      const token = await getToken().catch(() => null)
       const endpoint = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/extract-tasks`
-      console.log("[Dashboard] Calling endpoint:", endpoint)
-
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        credentials: "include",
         body: JSON.stringify({ transcript }),
       })
 
-      console.log("[Dashboard] Response status:", response.status)
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({} as { error?: string }))
-        console.error("[Dashboard] API error:", errorData)
         throw new Error(errorData.error || "Task extraction failed")
       }
 
-      const data: {
-        tasks: Task[]
-        meetingSummary?: string
-        totalTasks?: number
-        highPriorityCount?: number
-        speakers_detected?: string[]
-      } = await response.json()
-
-      console.log("[Dashboard] Received data:", data)
-
-      const uniqueTasks = data.tasks.filter((task, index, list) => {
+      const data: ExtractResponse = await response.json()
+      const uniqueTasks = (data.tasks || []).filter((task, index, list) => {
         const key = makeTaskFingerprint(task)
         return list.findIndex((candidate) => makeTaskFingerprint(candidate) === key) === index
       })
@@ -176,6 +175,24 @@ export default function DashboardPage() {
         totalTasks: data.totalTasks ?? uniqueTasks.length,
         highPriorityCount: data.highPriorityCount ?? uniqueTasks.filter((task) => task.priority === "High").length,
       })
+      setUploadedTranscript(transcript)
+
+      try {
+        window.localStorage.setItem(TRANSCRIPT_KEY, transcript)
+      } catch (error) {
+        console.error("Error caching transcript:", error)
+      }
+
+      persistExtractionDraft({
+        transcript,
+        tasks: uniqueTasks,
+        meetingSummary: data.meetingSummary || null,
+        extractionStats: {
+          totalTasks: data.totalTasks ?? uniqueTasks.length,
+          highPriorityCount: data.highPriorityCount ?? uniqueTasks.filter((task) => task.priority === "High").length,
+        },
+        speakersDetected: data.speakers_detected || [],
+      })
 
       if (!uniqueTasks.length) {
         toast.info("No clear tasks found", {
@@ -184,42 +201,20 @@ export default function DashboardPage() {
         return
       }
 
-      try {
-        const saveResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/meetings/save`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            title: `Meeting - ${new Date().toLocaleString()}`,
-            transcript,
-            tasks: uniqueTasks,
-          }),
-        })
+      await saveMeetingWithTasks(
+        {
+          title: `Meeting - ${new Date().toLocaleString()}`,
+          transcript,
+          tasks: uniqueTasks,
+        },
+        token,
+      )
 
-        if (!saveResponse.ok) {
-          const saveError = await saveResponse.json().catch(() => ({} as { error?: string }))
-          console.error("Save failed:", saveError)
-          toast.warning("Tasks extracted but not saved to database", {
-            description: saveError.error || "Database save failed",
-          })
-        } else {
-          const saveData = await saveResponse.json()
-          console.log("✅ Tasks saved to database:", saveData)
-          toast.success("Tasks extracted and saved to database!", {
-            description: `${saveData.tasks?.length || 0} tasks saved`,
-          })
-        }
-      } catch (dbError) {
-        console.error("Database save error:", dbError)
-        toast.error("Could not save to database", {
-          description: dbError instanceof Error ? dbError.message : "Unknown error",
-        })
-      }
+      await refreshSavedTasks()
+      emitWorkspaceDataChanged()
 
-      toast.success(`${uniqueTasks.length} tasks extracted successfully!`, {
-        description: "Review and customize tasks before saving.",
+      toast.success(`${uniqueTasks.length} tasks extracted and saved`, {
+        description: "Tasks are now visible on Dashboard, Tasks, and Meetings pages.",
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not extract tasks"
@@ -229,52 +224,128 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [makeTaskFingerprint])
+  }, [getToken, makeTaskFingerprint, refreshSavedTasks])
 
   const handleUpdateExtracted = useCallback((id: string, updates: Partial<Task>) => {
-    setExtractedTasks(prev =>
-      prev.map(task => task.id === id ? { ...task, ...updates } : task)
-    )
-  }, [])
+    setExtractedTasks((previous) => {
+      const nextTasks = previous.map((task) => task.id === id ? { ...task, ...updates } : task)
+      persistExtractionDraft({
+        transcript: uploadedTranscript,
+        tasks: nextTasks,
+        meetingSummary: extractionSummary,
+        extractionStats,
+        speakersDetected,
+      })
+      return nextTasks
+    })
+  }, [extractionStats, extractionSummary, speakersDetected, uploadedTranscript])
 
   const handleDeleteExtracted = useCallback((id: string) => {
-    setExtractedTasks(prev => prev.filter(task => task.id !== id))
+    setExtractedTasks((previous) => {
+      const nextTasks = previous.filter((task) => task.id !== id)
+      persistExtractionDraft({
+        transcript: uploadedTranscript,
+        tasks: nextTasks,
+        meetingSummary: extractionSummary,
+        extractionStats,
+        speakersDetected,
+      })
+      return nextTasks
+    })
     toast.info("Task removed")
-  }, [])
+  }, [extractionStats, extractionSummary, speakersDetected, uploadedTranscript])
 
-  const handleSaveAll = useCallback(() => {
-    setSavedTasks(prev => {
-      const existingKeys = new Set(prev.map((task) => makeTaskFingerprint(task)))
-      const toAdd = extractedTasks.filter((task) => {
-        const key = makeTaskFingerprint(task)
-        if (existingKeys.has(key)) {
-          return false
-        }
-        existingKeys.add(key)
-        return true
+  const handleSaveAll = useCallback(async () => {
+    if (!extractedTasks.length) {
+      toast.info("No extracted tasks to save")
+      return
+    }
+
+    const transcript = uploadedTranscript.trim()
+    if (!transcript) {
+      toast.error("Transcript is required", {
+        description: "Upload a recording or paste transcript before saving tasks.",
+      })
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const token = await getToken().catch(() => null)
+      await saveMeetingWithTasks(
+        {
+          title: `Meeting - ${new Date().toLocaleString()}`,
+          transcript,
+          tasks: extractedTasks,
+        },
+        token,
+      )
+
+      setExtractedTasks([])
+      await refreshSavedTasks()
+      emitWorkspaceDataChanged()
+
+      persistExtractionDraft({
+        transcript,
+        tasks: extractedTasks,
+        meetingSummary: extractionSummary,
+        extractionStats,
+        speakersDetected,
       })
 
-      return [...toAdd, ...prev]
-    })
-    setExtractedTasks([])
+      toast.success("All tasks saved", {
+        description: "Tasks have been synced across Dashboard, Tasks, and Meetings.",
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not save tasks"
+      toast.error("Could not save tasks", {
+        description: message,
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [extractedTasks, extractionStats, extractionSummary, getToken, refreshSavedTasks, speakersDetected, uploadedTranscript])
 
-    toast.success("All tasks saved!", {
-      description: "Tasks have been added to your browser storage.",
-    })
-  }, [extractedTasks, makeTaskFingerprint])
+  const handleToggleComplete = useCallback(async (id: string) => {
+    const current = savedTasks.find((task) => task.id === id)
+    if (!current) return
 
-  const handleToggleComplete = useCallback((id: string) => {
-    setSavedTasks(prev =>
-      prev.map(task =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
+    const nextValue = !current.completed
+
+    setSavedTasks((previous) =>
+      previous.map((task) => task.id === id ? { ...task, completed: nextValue } : task),
     )
-  }, [])
 
-  const handleDeleteSaved = useCallback((id: string) => {
-    setSavedTasks(prev => prev.filter(task => task.id !== id))
-    toast.info("Task deleted")
-  }, [])
+    try {
+      const token = await getToken().catch(() => null)
+      await updateTaskById(id, { completed: nextValue }, token)
+      emitWorkspaceDataChanged()
+    } catch (error) {
+      setSavedTasks((previous) =>
+        previous.map((task) => task.id === id ? { ...task, completed: current.completed } : task),
+      )
+
+      const message = error instanceof Error ? error.message : "Could not update task"
+      toast.error("Task update failed", { description: message })
+    }
+  }, [getToken, savedTasks])
+
+  const handleDeleteSaved = useCallback(async (id: string) => {
+    const previousTasks = savedTasks
+    setSavedTasks((current) => current.filter((task) => task.id !== id))
+
+    try {
+      const token = await getToken().catch(() => null)
+      await deleteTaskById(id, token)
+      emitWorkspaceDataChanged()
+      toast.info("Task deleted")
+    } catch (error) {
+      setSavedTasks(previousTasks)
+      const message = error instanceof Error ? error.message : "Could not delete task"
+      toast.error("Delete failed", { description: message })
+    }
+  }, [getToken, savedTasks])
 
   const handleTranscriptUpload = useCallback(async (transcript: string) => {
     setUploadedTranscript(transcript)
@@ -288,81 +359,49 @@ export default function DashboardPage() {
     await handleExtract(transcript)
   }, [handleExtract])
 
-  if (authState !== "authenticated") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-6">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Checking your session...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="flex min-h-screen bg-background">
-      <DashboardSidebar />
+    <div className="min-h-screen w-full px-6 py-6 lg:px-10 lg:py-8">
+      <div className="w-full space-y-8">
+        <DashboardPageHeader
+          backHref="/"
+          backLabel="Back"
+          title="MeetingFlow Dashboard"
+          description="Upload meeting files, extract tasks, and track execution in one place"
+        />
 
-      <main className="flex-1 ml-64">
-        <div className="p-8">
-          <div className="mb-8">
-            <div className="mb-4">
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back
-                </Link>
-              </Button>
-            </div>
-            <h1 className="text-2xl font-bold mb-1">MeetingFlow Dashboard</h1>
-            <p className="text-muted-foreground">
-              Upload meeting files, extract tasks, and track execution in one place.
-            </p>
-            {currentUser ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Signed in as {currentUser.name} ({currentUser.role})
-              </p>
-            ) : null}
-          </div>
+        <StatsCards stats={stats} />
 
-          <div className="mb-8">
-            <StatsCards stats={stats} />
-          </div>
+        <AudioUpload onTranscript={handleTranscriptUpload} />
 
-          <div className="mb-8">
-            <AudioUpload onTranscript={handleTranscriptUpload} />
-          </div>
+        <AIInput
+          onExtract={handleExtract}
+          isLoading={isLoading}
+          initialTranscript={uploadedTranscript}
+        />
 
-          <div className="mb-8">
-            <AIInput
-              onExtract={handleExtract}
-              isLoading={isLoading}
-              initialTranscript={uploadedTranscript}
-            />
-          </div>
-
-          {(extractedTasks.length > 0 || extractionSummary) && (
-            <div className="mb-8">
-              <ExtractedTasks
-                tasks={extractedTasks}
-                meetingSummary={extractionSummary}
-                totalTasks={extractionStats?.totalTasks ?? extractedTasks.length}
-                highPriorityCount={extractionStats?.highPriorityCount ?? extractedTasks.filter((task) => task.priority === "High").length}
-                speakersDetected={speakersDetected}
-                onUpdateTask={handleUpdateExtracted}
-                onDeleteTask={handleDeleteExtracted}
-                onSaveAll={handleSaveAll}
-              />
-            </div>
-          )}
-
-          <TaskTable
-            tasks={savedTasks}
-            onToggleComplete={handleToggleComplete}
-            onDeleteTask={handleDeleteSaved}
+        {(extractedTasks.length > 0 || extractionSummary) && (
+          <ExtractedTasks
+            tasks={extractedTasks}
+            meetingSummary={extractionSummary}
+            totalTasks={extractionStats?.totalTasks ?? extractedTasks.length}
+            highPriorityCount={extractionStats?.highPriorityCount ?? extractedTasks.filter((task) => task.priority === "High").length}
+            speakersDetected={speakersDetected}
+            onUpdateTask={handleUpdateExtracted}
+            onDeleteTask={handleDeleteExtracted}
+            onSaveAll={handleSaveAll}
           />
-        </div>
-      </main>
+        )}
+
+        <TaskTable
+          tasks={savedTasks}
+          onToggleComplete={handleToggleComplete}
+          onDeleteTask={handleDeleteSaved}
+        />
+
+        {isSyncingTasks && (
+          <p className="text-xs text-muted-foreground">Refreshing tasks...</p>
+        )}
+      </div>
     </div>
   )
 }

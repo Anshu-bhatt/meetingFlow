@@ -9,7 +9,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 const AUTH_ITERATIONS = 120000;
 const AUTH_KEYLEN = 64;
 const AUTH_DIGEST = "sha512";
-const AUTH_TABLE = "team_members";
+const AUTH_TABLE = "app_users";
 const MANAGER_DOMAIN = "@company.com";
 
 const inferRoleFromLoginId = (loginId) => {
@@ -88,13 +88,10 @@ export const createAppUser = async ({ loginId, name, password, role }) => {
     .from(AUTH_TABLE)
     .insert([
       {
-        workspace_id: normalizedLoginId,
         login_id: normalizedLoginId,
         name: String(name || normalizedLoginId).trim(),
-        email: normalizedLoginId,
         role: normalizedRole,
         password_hash: passwordHash,
-        onboarded: false,
       },
     ])
     .select();
