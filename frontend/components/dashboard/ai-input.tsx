@@ -16,29 +16,20 @@ interface AIInputProps {
 export function AIInput({ onExtract, isLoading, initialTranscript }: AIInputProps) {
   const [transcript, setTranscript] = useState("")
 
-  // Only set initial transcript once on mount, don't keep syncing
+  // Update textarea when a newly uploaded transcript arrives.
   useEffect(() => {
-    if (initialTranscript && transcript === "") {
+    if (typeof initialTranscript === "string") {
       setTranscript(initialTranscript)
     }
-  }, [])
+  }, [initialTranscript])
 
   const handleClear = () => {
-    console.log("[AIInput] Clearing transcript")
     setTranscript("")
   }
 
   const handleSubmit = () => {
-    console.log("[AIInput] handleSubmit called")
-    console.log("[AIInput] transcript length:", transcript.length)
-    console.log("[AIInput] transcript.trim():", transcript.trim().length > 0)
-    console.log("[AIInput] full transcript:", transcript)
-
     if (transcript.trim()) {
-      console.log("[AIInput] Calling onExtract with transcript:", transcript.substring(0, 50))
       onExtract(transcript)
-    } else {
-      console.log("[AIInput] Transcript is empty!")
     }
   }
 
@@ -65,10 +56,7 @@ Example:
           <Textarea
             placeholder={placeholder}
             value={transcript}
-            onChange={(e) => {
-              console.log("[AIInput] onChange fired, new value length:", e.target.value.length)
-              setTranscript(e.target.value)
-            }}
+            onChange={(e) => setTranscript(e.target.value)}
             disabled={isLoading}
             className="min-h-[180px] bg-secondary/50 border-border/70 resize-none"
           />
