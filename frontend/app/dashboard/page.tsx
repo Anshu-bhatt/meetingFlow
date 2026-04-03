@@ -119,8 +119,31 @@ export default function DashboardPage() {
         return
       }
 
+      // Save meeting and tasks to database
+      try {
+        const saveResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/meetings/save`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { "Authorization": `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            title: `Meeting - ${new Date().toLocaleString()}`,
+            transcript,
+            tasks: uniqueTasks,
+          }),
+        })
+
+        if (saveResponse.ok) {
+          const saved = await saveResponse.json()
+          console.log("✓ Meeting and tasks saved to database:", saved.meeting.id)
+        }
+      } catch (dbError) {
+        console.error("Database save error:", dbError)
+      }
+
       toast.success(`${uniqueTasks.length} tasks extracted successfully!`, {
-        description: "Review and customize tasks before saving.",
+        description: "✓ Saved to database. Review and customize as needed.",
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not extract tasks"

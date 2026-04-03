@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import aiRoutes from "./src/routes/ai.js";
 import authRoutes from "./src/routes/auth.js";
+import dbRoutes from "./src/routes/db.js";
 
 dotenv.config();
 dotenv.config({ path: "../.env" });
@@ -19,6 +20,7 @@ app.use(express.json());
 
 app.use("/api/ai", aiRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api", dbRoutes);
 
 const PORT = process.env.PORT || 5000;
 
