@@ -62,9 +62,9 @@ export function Hero() {
               <div className="flex items-center justify-between pb-4 border-b border-border">
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
-                    <span className="text-primary font-bold text-sm">AF</span>
+                    <span className="text-primary font-bold text-sm">MF</span>
                   </div>
-                  <span className="font-semibold">ActionFlow AI</span>
+                  <span className="font-semibold">MeetingFlow</span>
                 </div>
                 <Badge variant="secondary" className="wm-pill text-xs">Live Preview</Badge>
               </div>

@@ -1,18 +1,22 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
+import Link from "next/link"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { AIInput } from "@/components/dashboard/ai-input"
+import AudioUpload from "@/components/dashboard/audio-upload"
 import { ExtractedTasks } from "@/components/dashboard/extracted-tasks"
 import { TaskTable } from "@/components/dashboard/task-table"
-import { DashboardPlan } from "@/components/dashboard/dashboard-plan"
+import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { ArrowLeft } from "lucide-react"
 import type { Task } from "@/lib/types"
 
 
 export default function DashboardPage() {
-  const STORAGE_KEY = "meetflow.savedTasks"
+  const STORAGE_KEY = "meetingflow.savedTasks"
+  const TRANSCRIPT_KEY = "meetingflow.latestTranscript"
 
   const [savedTasks, setSavedTasks] = useState<Task[]>(() => {
     if (typeof window === "undefined") {
@@ -33,6 +37,7 @@ export default function DashboardPage() {
     }
   })
   const [extractedTasks, setExtractedTasks] = useState<Task[]>([])
+  const [uploadedTranscript, setUploadedTranscript] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -69,6 +74,17 @@ export default function DashboardPage() {
       return new Date(t.deadline) < new Date()
     }).length,
   }
+
+  useEffect(() => {
+    try {
+      const latestTranscript = window.localStorage.getItem(TRANSCRIPT_KEY)
+      if (latestTranscript?.trim()) {
+        setUploadedTranscript(latestTranscript)
+      }
+    } catch (error) {
+      console.error("Error loading latest transcript:", error)
+    }
+  }, [])
 
   // Handle AI extraction
   const handleExtract = useCallback(async (transcript: string) => {
@@ -169,6 +185,18 @@ export default function DashboardPage() {
     toast.info("Task deleted")
   }, [])
 
+  const handleTranscriptUpload = useCallback(async (transcript: string) => {
+    setUploadedTranscript(transcript)
+
+    try {
+      window.localStorage.setItem(TRANSCRIPT_KEY, transcript)
+    } catch (error) {
+      console.error("Error caching transcript:", error)
+    }
+
+    await handleExtract(transcript)
+  }, [handleExtract])
+
   return (
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
@@ -176,9 +204,17 @@ export default function DashboardPage() {
       <main className="flex-1 ml-64">
         <div className="p-8">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
+            <div className="mb-4">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Link>
+              </Button>
+            </div>
+            <h1 className="text-2xl font-bold mb-1">MeetingFlow Dashboard</h1>
             <p className="text-muted-foreground">
-              Extract and manage tasks from your meetings
+              Upload meeting files, extract tasks, and track execution in one place
             </p>
           </div>
 
@@ -186,10 +222,16 @@ export default function DashboardPage() {
             <StatsCards stats={stats} />
           </div>
 
-          <DashboardPlan />
+          <div className="mb-8">
+            <AudioUpload onTranscript={handleTranscriptUpload} />
+          </div>
 
           <div className="mb-8">
-            <AIInput onExtract={handleExtract} isLoading={isLoading} />
+            <AIInput
+              onExtract={handleExtract}
+              isLoading={isLoading}
+              initialTranscript={uploadedTranscript}
+            />
           </div>
 
           {extractedTasks.length > 0 && (

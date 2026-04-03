@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,10 +10,17 @@ import { Spinner } from "@/components/ui/spinner"
 interface AIInputProps {
   onExtract: (transcript: string) => void | Promise<void>
   isLoading: boolean
+  initialTranscript?: string
 }
 
-export function AIInput({ onExtract, isLoading }: AIInputProps) {
+export function AIInput({ onExtract, isLoading, initialTranscript }: AIInputProps) {
   const [transcript, setTranscript] = useState("")
+
+  useEffect(() => {
+    if (initialTranscript && initialTranscript !== transcript) {
+      setTranscript(initialTranscript)
+    }
+  }, [initialTranscript, transcript])
   
   const handleSubmit = () => {
     if (transcript.trim()) {
@@ -35,7 +42,7 @@ Example:
           </div>
           <div>
             <CardTitle>AI Task Extraction</CardTitle>
-            <CardDescription>Paste your meeting transcript and let AI extract tasks</CardDescription>
+            <CardDescription>Paste transcript or use upload below to extract tasks</CardDescription>
           </div>
         </div>
       </CardHeader>

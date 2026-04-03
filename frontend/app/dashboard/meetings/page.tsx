@@ -1,8 +1,14 @@
+"use client"
+
+import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { AudioLines, CalendarDays, Mic, PlayCircle, Sparkles, Upload } from "lucide-react"
+import AudioUpload from "@/components/dashboard/audio-upload"
+import { AudioLines, ArrowLeft, CalendarDays, Mic, PlayCircle, Sparkles, Upload } from "lucide-react"
 
 const meetings = [
   {
@@ -34,23 +40,45 @@ const meetingFlow = [
 ]
 
 export default function MeetingsPage() {
+  const router = useRouter()
+  const [transcript, setTranscript] = useState("")
+
+  const handleUploadedTranscript = (text: string) => {
+    setTranscript(text)
+  }
+
+  const sendToDashboard = () => {
+    if (!transcript.trim()) {
+      return
+    }
+
+    window.localStorage.setItem("meetingflow.latestTranscript", transcript)
+    router.push("/dashboard")
+  }
+
   return (
     <main className="min-h-screen bg-background px-6 py-8">
       <div className="mx-auto max-w-7xl space-y-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
+            <Button variant="outline" size="sm" asChild className="mb-2">
+              <Link href="/dashboard">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Link>
+            </Button>
             <Badge variant="secondary" className="w-fit">Meeting intake</Badge>
-            <h1 className="text-3xl font-bold tracking-tight">Meetings Workspace</h1>
+            <h1 className="text-3xl font-bold tracking-tight">MeetingFlow Meetings</h1>
             <p className="max-w-2xl text-muted-foreground">
-              This screen will host transcript upload, recording review, live meeting capture, and transcript-to-task handoff.
+              Upload audio/video, review transcript output, and send it directly to task extraction.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={sendToDashboard} disabled={!transcript.trim()}>
               <Upload className="h-4 w-4" />
-              Upload recording
+              Send to dashboard
             </Button>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={sendToDashboard} disabled={!transcript.trim()}>
               <Sparkles className="h-4 w-4" />
               Start extraction
             </Button>
@@ -58,15 +86,26 @@ export default function MeetingsPage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <Card className="border-border bg-card">
+          <Card className="wm-card border-border bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <AudioLines className="h-5 w-5 text-primary" />
                 Meeting Intake Flow
               </CardTitle>
-              <CardDescription>Static preview of the upload-first experience</CardDescription>
+              <CardDescription>Upload-first workflow with local transcription</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="mb-5">
+                <AudioUpload onTranscript={handleUploadedTranscript} />
+              </div>
+
+              {transcript.trim() && (
+                <div className="mb-6 rounded-2xl border border-border/70 bg-background/60 p-4">
+                  <p className="mb-2 text-sm font-medium">Transcript preview</p>
+                  <p className="line-clamp-5 text-sm text-muted-foreground">{transcript}</p>
+                </div>
+              )}
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-6">
                   <div className="flex items-center gap-2 text-sm font-medium mb-3">
@@ -106,7 +145,7 @@ export default function MeetingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border bg-card">
+          <Card className="wm-card border-border bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <CalendarDays className="h-5 w-5 text-primary" />

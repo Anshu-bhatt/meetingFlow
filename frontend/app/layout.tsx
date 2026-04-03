@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ActionFlow AI - Turn Meetings into Action',
+  title: 'MeetingFlow - Turn Meetings into Action',
   description: 'AI-powered meeting task extraction and accountability system. Extract tasks, assign owners, and ensure nothing gets missed.',
   generator: 'v0.app',
   icons: {

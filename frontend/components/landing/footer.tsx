@@ -11,7 +11,7 @@ export function Footer() {
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <Zap className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold">ActionFlow AI</span>
+            <span className="font-semibold">MeetingFlow</span>
           </Link>
           
           {/* Links */}
@@ -23,7 +23,7 @@ export function Footer() {
           
           {/* Copyright */}
           <p className="text-sm text-muted-foreground">
-            {"© 2026 ActionFlow AI. All rights reserved."}
+            {"© 2026 MeetingFlow. All rights reserved."}
           </p>
         </div>
       </div>
