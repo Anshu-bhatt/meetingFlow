@@ -51,6 +51,8 @@ export default function DashboardPage() {
   const { getToken } = useAuth()
   const [savedTasks, setSavedTasks] = useState<Task[]>(initialTasks)
   const [extractedTasks, setExtractedTasks] = useState<Task[]>([])
+  const [extractionSummary, setExtractionSummary] = useState<string | null>(null)
+  const [extractionStats, setExtractionStats] = useState<{ totalTasks: number; highPriorityCount: number } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const makeTaskFingerprint = useCallback((task: Pick<Task, "title" | "assignee" | "deadline">) => {
@@ -71,6 +73,9 @@ export default function DashboardPage() {
   // Handle AI extraction
   const handleExtract = useCallback(async (transcript: string) => {
     setIsLoading(true)
+    setExtractedTasks([])
+    setExtractionSummary(null)
+    setExtractionStats(null)
 
     try {
       const token = await getToken()
@@ -89,13 +94,23 @@ export default function DashboardPage() {
         throw new Error(errorData.error || "Task extraction failed")
       }
 
-      const data: { tasks: Task[] } = await response.json()
+      const data: {
+        tasks: Task[]
+        meetingSummary?: string
+        totalTasks?: number
+        highPriorityCount?: number
+      } = await response.json()
       const uniqueTasks = data.tasks.filter((task, index, list) => {
         const key = makeTaskFingerprint(task)
         return list.findIndex((candidate) => makeTaskFingerprint(candidate) === key) === index
       })
 
       setExtractedTasks(uniqueTasks)
+      setExtractionSummary(data.meetingSummary || null)
+      setExtractionStats({
+        totalTasks: data.totalTasks ?? uniqueTasks.length,
+        highPriorityCount: data.highPriorityCount ?? uniqueTasks.filter((task) => task.priority === "High").length,
+      })
 
       if (!uniqueTasks.length) {
         toast.info("No clear tasks found", {
@@ -192,10 +207,13 @@ export default function DashboardPage() {
                 <AIInput onExtract={handleExtract} isLoading={isLoading} />
               </div>
 
-              {extractedTasks.length > 0 && (
+              {(extractedTasks.length > 0 || extractionSummary) && (
                 <div className="mb-8">
                   <ExtractedTasks
                     tasks={extractedTasks}
+                    meetingSummary={extractionSummary}
+                    totalTasks={extractionStats?.totalTasks ?? extractedTasks.length}
+                    highPriorityCount={extractionStats?.highPriorityCount ?? extractedTasks.filter((task) => task.priority === "High").length}
                     onUpdateTask={handleUpdateExtracted}
                     onDeleteTask={handleDeleteExtracted}
                     onSaveAll={handleSaveAll}

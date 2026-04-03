@@ -15,13 +15,24 @@ import { teamMembers, priorities } from "@/lib/types"
 
 interface ExtractedTasksProps {
   tasks: Task[]
+  meetingSummary?: string | null
+  totalTasks?: number | null
+  highPriorityCount?: number | null
   onUpdateTask: (id: string, updates: Partial<Task>) => void
   onDeleteTask: (id: string) => void
   onSaveAll: () => void
 }
 
-export function ExtractedTasks({ tasks, onUpdateTask, onDeleteTask, onSaveAll }: ExtractedTasksProps) {
-  if (tasks.length === 0) return null
+export function ExtractedTasks({
+  tasks,
+  meetingSummary,
+  totalTasks,
+  highPriorityCount,
+  onUpdateTask,
+  onDeleteTask,
+  onSaveAll,
+}: ExtractedTasksProps) {
+  if (tasks.length === 0 && !meetingSummary) return null
 
   return (
     <Card className="bg-card border-border">
@@ -42,6 +53,25 @@ export function ExtractedTasks({ tasks, onUpdateTask, onDeleteTask, onSaveAll }:
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {meetingSummary ? (
+          <div className="rounded-xl border border-border/60 bg-secondary/30 p-4 space-y-2">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide">
+              <span>{totalTasks ?? tasks.length} total tasks</span>
+              <span>•</span>
+              <span>{highPriorityCount ?? tasks.filter((task) => task.priority === "High").length} high priority</span>
+            </div>
+            <p className="text-sm leading-relaxed text-foreground whitespace-pre-line">
+              {meetingSummary}
+            </p>
+          </div>
+        ) : null}
+
+        {tasks.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/60 bg-secondary/20 p-4 text-sm text-muted-foreground">
+            No action items were extracted from this transcript.
+          </div>
+        ) : null}
+
         {tasks.map((task) => (
           <div 
             key={task.id} 

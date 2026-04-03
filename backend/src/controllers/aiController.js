@@ -1,47 +1,5 @@
 import { generateTasks } from "../services/ai/taskchain.js";
 
-const normalizePriority = (priority) => {
-	const value = String(priority || "").toLowerCase();
-	if (value === "high") return "High";
-	if (value === "low") return "Low";
-	return "Medium";
-};
-
-const toIsoDate = (value) => {
-	if (typeof value === "string" && value.trim()) {
-		const parsed = new Date(value);
-		if (!Number.isNaN(parsed.getTime())) {
-			return parsed.toISOString();
-		}
-	}
-
-	return null;
-};
-
-const normalizeTask = (task, index) => {
-	const rawTitle =
-		typeof task?.task === "string" && task.task.trim()
-			? task.task
-			: typeof task?.title === "string"
-			? task.title
-			: "";
-
-	return ({
-	id: `extracted-${Date.now()}-${index}`,
-	title:
-		typeof rawTitle === "string" && rawTitle.trim()
-			? rawTitle.trim()
-			: "Follow up on meeting action item",
-	assignee:
-		typeof task?.assignee === "string" && task.assignee.trim()
-			? task.assignee.trim()
-			: "Unassigned",
-	priority: normalizePriority(task?.priority),
-	deadline: toIsoDate(task?.deadline),
-	completed: false,
-	});
-};
-
 export const extractTasks = async (req, res) => {
 	try {
 		const { transcript } = req.body;
@@ -51,13 +9,15 @@ export const extractTasks = async (req, res) => {
 		}
 
 		console.log("[extractTasks] Processing transcript:", transcript.substring(0, 50) + "...");
-		const rawTasks = await generateTasks(transcript);
-		console.log("[extractTasks] Generated raw tasks:", rawTasks);
-		const tasks = Array.isArray(rawTasks)
-			? rawTasks.map((task, index) => normalizeTask(task, index))
-			: [];
+		const result = await generateTasks(transcript);
+		console.log("[extractTasks] Generated result:", result);
 
-		res.json({ tasks });
+		res.json({
+			tasks: result.tasks || [],
+			meetingSummary: result.meetingSummary || "",
+			totalTasks: result.totalTasks ?? (result.tasks || []).length,
+			highPriorityCount: result.highPriorityCount ?? (result.tasks || []).filter((task) => task.priority === "High").length,
+		});
 	} catch (err) {
 		console.error("[extractTasks] ERROR:", err.message);
 		console.error("[extractTasks] Stack:", err.stack);
