@@ -64,6 +64,20 @@ export const extractorPrompt = ChatPromptTemplate.fromMessages([
   - medium: "this sprint", "this week", "soon"
   - low: "next sprint", "later", "small thing", "someday"
 
+  DUE DATE RESOLUTION:
+  - Today's date is: {current_date}
+  - Convert ALL relative dates to absolute ISO format (YYYY-MM-DD):
+    • "today" → {current_date}
+    • "tomorrow" → the next calendar day after {current_date}
+    • "next Monday" → the next upcoming Monday from {current_date}
+    • "next Friday" → the next upcoming Friday from {current_date}
+    • "in 3 days" → {current_date} + 3 days
+    • "end of this week" → the upcoming Friday from {current_date}
+    • "next week" → the Monday of the following week from {current_date}
+    • "this sprint" / "this week" → the upcoming Friday from {current_date}
+  - If NO due date is mentioned → return "not set"
+  - The "deadline" field MUST be either a YYYY-MM-DD string or "not set"
+
   KNOWN SPEAKERS FROM PRE-PARSE: {speakers}
   - Treat this list as canonical speaker identities.
   - assignee must be one of these speakers or "unassigned".
@@ -80,14 +94,14 @@ export const extractorPrompt = ChatPromptTemplate.fromMessages([
         "assigned_by": "who gave the task or self",
         "commitment_phrase": "exact words that show commitment",
         "supporting": "person being helped or none",
-        "deadline": "specific date or not set",
+        "deadline": "YYYY-MM-DD or not set",
         "priority": "high | medium | low",
         "context": "one line why this task came up",
         "dependencies": "blocked by what or none"
       }}
     ]
   }}`],
-  ["human", "Analyze this transcript:\n\n{clean_transcript}\n\nKnown speakers: {speakers}"]
+  ["human", "Today's date is: {current_date}\n\nAnalyze this transcript:\n\n{clean_transcript}\n\nKnown speakers: {speakers}"]
 ]);
 
 // ─── Chain 3: Validator — Enrich & Finalize ───────────────
@@ -162,6 +176,20 @@ export const unifiedExtractionPrompt = ChatPromptTemplate.fromMessages([
   - Sharpen vague tasks: "fix that" → "Fix API response structure for frontend"
   - Remove duplicates and merge similar tasks under one assignee.
 
+  DUE DATE RESOLUTION:
+  - Today's date is: {current_date}
+  - Convert ALL relative dates to absolute ISO format (YYYY-MM-DD):
+    • "today" → {current_date}
+    • "tomorrow" → the next calendar day after {current_date}
+    • "next Monday" → the next upcoming Monday from {current_date}
+    • "next Friday" → the next upcoming Friday from {current_date}
+    • "in 3 days" → {current_date} + 3 days
+    • "end of this week" → the upcoming Friday from {current_date}
+    • "next week" → the Monday of the following week from {current_date}
+    • "this sprint" / "this week" → the upcoming Friday from {current_date}
+  - If NO due date is mentioned → return "not set"
+  - The "deadline" field MUST be either a YYYY-MM-DD string or "not set"
+
   KNOWN SPEAKERS FROM PRE-PARSE: {speakers}
   
   Return ONLY this exact JSON, nothing else:
@@ -173,7 +201,7 @@ export const unifiedExtractionPrompt = ChatPromptTemplate.fromMessages([
         "task": "specific sharpened action",
         "assignee": "correct speaker name from known speakers",
         "supporting": "person being helped or none",
-        "deadline": "date or not set",
+        "deadline": "YYYY-MM-DD or not set",
         "priority": "High | Medium | Low",
         "context": "why this came up",
         "dependencies": "blocked by X or none",
@@ -183,5 +211,5 @@ export const unifiedExtractionPrompt = ChatPromptTemplate.fromMessages([
     "total_tasks": number,
     "high_priority_count": number
   }}`],
-  ["human", "Analyze and extract data from this transcript:\n\n{transcript}\n\nKnown speakers: {speakers}"]
+  ["human", "Today's date is: {current_date}\n\nAnalyze and extract data from this transcript:\n\n{transcript}\n\nKnown speakers: {speakers}"]
 ]);

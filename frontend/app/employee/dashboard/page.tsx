@@ -14,6 +14,7 @@ type AuthUser = {
   login_id: string
   name: string
   role: string
+  google_token_expires_at?: string
 }
 
 export default function EmployeeDashboardPage() {
@@ -21,6 +22,9 @@ export default function EmployeeDashboardPage() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  const isGoogleConnected = !!user?.google_token_expires_at;
+  const googleAuthUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/google`;
 
   useEffect(() => {
     const loadSession = async () => {
@@ -122,14 +126,35 @@ export default function EmployeeDashboardPage() {
     <main className="min-h-screen bg-background px-6 py-8">
       <div className="mx-auto max-w-6xl space-y-8">
         <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6 shadow-xl md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <Badge variant="secondary" className="w-fit">Employee portal</Badge>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="w-fit">Employee portal</Badge>
+              {isGoogleConnected ? (
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                  <div className="mr-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  Calendar Connected
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20">
+                  <div className="mr-1 h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  Calendar Disconnected
+                </Badge>
+              )}
+            </div>
             <h1 className="text-3xl font-bold tracking-tight">Welcome, {user.name}</h1>
             <p className="text-muted-foreground">
               Your assigned tasks, meeting summaries, and team updates will appear here.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            {!isGoogleConnected && (
+              <Button variant="default" asChild className="bg-blue-600 hover:bg-blue-700">
+                <a href={googleAuthUrl}>
+                  <img src="https://www.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png" className="mr-2 h-4 w-4" alt="Google" />
+                  Connect Google Calendar
+                </a>
+              </Button>
+            )}
             <Button variant="outline" asChild>
               <Link href="/">
                 <ArrowLeft className="mr-2 h-4 w-4" />

@@ -1,10 +1,13 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import cron from "node-cron";
 import aiRoutes from "./src/routes/ai.js";
 import authRoutes from "./src/routes/auth.js";
+import googleAuthRoutes from "./src/routes/googleAuth.js";
 import meetingRoute from "./src/routes/meetingRoute.js";
-import { ensureSeedAuthUsers } from "./src/services/db.js";
+import { ensureSeedAuthUsers, supabase } from "./src/services/db.js";
+import { sendEmailReminder } from "./src/services/notificationService.js";
 
 dotenv.config();
 dotenv.config({ path: "../.env" });
@@ -36,7 +39,44 @@ app.use(
 
 app.use("/api/ai", aiRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/auth", googleAuthRoutes); // Google OAuth routes
 app.use("/api", meetingRoute);
+
+// CRON JOB: Check for tasks due within 48 hours every 4 hours
+cron.schedule("0 */4 * * *", async () => {
+  console.log("[Cron] Running 48h task reminder check...");
+  try {
+    const fortyEightHoursFromNow = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+    const now = new Date().toISOString();
+
+    // Query pending tasks due in <= 48 hours
+    const { data: tasks, error } = await supabase
+      .from("tasks")
+      .select("*, meetings(uploaded_by)")
+      .neq("status", "completed")
+      .lte("deadline", fortyEightHoursFromNow.split("T")[0])
+      .gte("deadline", now.split("T")[0]);
+
+    if (error) throw error;
+
+    for (const task of tasks) {
+      // Find the user to notify. Priority: assignee_name matching user name or email.
+      // If no match, notify the meeting uploader.
+      const { data: users } = await supabase
+        .from("app_users")
+        .select("login_id, name")
+        .or(`name.ilike.${task.assignee_name},login_id.ilike.${task.assignee_name}`);
+
+      const targetEmail = users?.[0]?.login_id || task.assignee_name || task.meetings?.uploaded_by;
+
+      if (targetEmail && targetEmail.includes("@")) {
+        await sendEmailReminder(targetEmail, task);
+      }
+    }
+  } catch (err) {
+    console.error("[Cron] Task reminder job failed:", err.message);
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 
@@ -52,4 +92,4 @@ const startServer = async () => {
   }
 };
 
-startServer();
+startServer();

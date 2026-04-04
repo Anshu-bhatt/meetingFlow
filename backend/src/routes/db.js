@@ -17,7 +17,9 @@ import {
   saveIntegration,
   getIntegration,
   getAppUserByLoginId,
+  supabase,
 } from "../services/db.js";
+import { createCalendarEvent } from "../services/googleCalendarService.js";
 
 const router = express.Router();
 const inFlightMeetingSaves = new Map();
@@ -105,22 +107,20 @@ router.post("/meetings/save", requireAuth, async (req, res) => {
 
     const savePromise = (async () => {
       const existingMeeting = await getMeetingByWorkspaceAndTranscript(workspaceId, transcript);
+      const meeting = existingMeeting || (await saveMeeting(workspaceId, title, transcript, workspaceId));
+
       if (existingMeeting) {
-        const existingTasks = await getTasksByMeeting(existingMeeting.id);
-        console.log(`[DB] ↺ Duplicate transcript detected, returning existing meeting: ${existingMeeting.id}`);
-        return { meeting: existingMeeting, tasks: existingTasks, duplicate: true };
+        console.log(`[DB] ↺ Reusing existing meeting for transcript: ${existingMeeting.id}`);
+      } else {
+        console.log(`[DB] ➜ Saving meeting...`);
+        console.log(`[DB] ✓ Meeting saved: ${meeting.id}`);
       }
-
-      console.log(`[DB] ➜ Saving meeting...`);
-
-      const meeting = await saveMeeting(workspaceId, title, transcript, workspaceId);
-      console.log(`[DB] ✓ Meeting saved: ${meeting.id}`);
 
       let savedTasks = [];
       if (Array.isArray(tasks) && tasks.length > 0) {
-        const existingWorkspaceTasks = await getTasksByWorkspace(workspaceId);
-        const existingTaskKeys = new Set((existingWorkspaceTasks || []).map((task) => buildTaskKey(task)));
         const incomingTaskKeys = new Set();
+        const existingTasks = await getTasksByMeeting(meeting.id);
+        const existingTaskKeys = new Set((existingTasks || []).map((task) => buildTaskKey(task)));
 
         const tasksToSave = tasks
           .map((task) => ({
@@ -142,8 +142,33 @@ router.post("/meetings/save", requireAuth, async (req, res) => {
             return true;
           });
 
-        savedTasks = await saveTasks(meeting.id, tasksToSave);
-        console.log(`[DB] ✓ Saved ${savedTasks.length} tasks`);
+        if (tasksToSave.length > 0) {
+          savedTasks = await saveTasks(meeting.id, tasksToSave);
+          console.log(`[DB] ✓ Saved ${savedTasks.length} tasks`);
+        } else {
+          console.log(`[DB] ↷ No new tasks to save for meeting: ${meeting.id}`);
+        }
+
+        // Automatic Google Calendar Sync
+        for (const task of savedTasks) {
+          if (task.deadline) {
+            try {
+              // Try to find the user by assignee_name (could be name or email)
+              const { data: users } = await supabase
+                .from("app_users")
+                .select("*")
+                .or(`name.ilike.${task.assignee_name},login_id.ilike.${task.assignee_name}`);
+
+              const user = users?.[0];
+              if (user && user.google_refresh_token) {
+                console.log(`[DB] ➜ Syncing task "${task.title}" to Google Calendar for ${user.login_id}`);
+                await createCalendarEvent(user, task);
+              }
+            } catch (syncError) {
+              console.error(`[DB] Google Calendar sync failed for task ${task.id}:`, syncError.message);
+            }
+          }
+        }
       }
 
       const isManager = req.auth?.role === "manager" || String(req.auth?.userId || "").toLowerCase().endsWith("@company.com");

@@ -184,10 +184,69 @@ const normalizeDeadline = (value) => {
     return null;
   }
 
+  // Already in ISO format — return directly
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return trimmed;
   }
 
+  // Fallback: resolve common relative dates the LLM might not have converted
+  const lower = trimmed.toLowerCase();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const toISO = (d) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  if (lower === "today") {
+    return toISO(today);
+  }
+
+  if (lower === "tomorrow") {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 1);
+    return toISO(d);
+  }
+
+  // "in N days" pattern
+  const inDaysMatch = lower.match(/^in\s+(\d+)\s+days?$/);
+  if (inDaysMatch) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + parseInt(inDaysMatch[1], 10));
+    return toISO(d);
+  }
+
+  // "next week" → next Monday
+  if (lower === "next week") {
+    const d = new Date(today);
+    const daysUntilMon = ((1 - d.getDay() + 7) % 7) || 7;
+    d.setDate(d.getDate() + daysUntilMon);
+    return toISO(d);
+  }
+
+  // "this week" / "end of this week" → this Friday
+  if (lower === "this week" || lower === "end of this week" || lower === "end of week") {
+    const d = new Date(today);
+    const daysUntilFri = ((5 - d.getDay() + 7) % 7) || 7;
+    d.setDate(d.getDate() + daysUntilFri);
+    return toISO(d);
+  }
+
+  // "next <dayname>" pattern
+  const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  const nextDayMatch = lower.match(/^next\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$/);
+  if (nextDayMatch) {
+    const targetDay = dayNames.indexOf(nextDayMatch[1]);
+    const d = new Date(today);
+    const daysUntil = ((targetDay - d.getDay() + 7) % 7) || 7;
+    d.setDate(d.getDate() + daysUntil);
+    return toISO(d);
+  }
+
+  // Try generic Date parse as last resort
   const parsed = new Date(trimmed);
   if (Number.isNaN(parsed.getTime())) {
     return null;
@@ -431,11 +490,24 @@ const buildFallbackResult = (transcript, reason = "", speakers = []) => {
   };
 };
 
+const getCurrentDateISO = () => {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const runChainWithLlm = async (llm, transcript, speakers) => {
     const extractionChain = unifiedExtractionPrompt.pipe(llm);
+    const currentDate = getCurrentDateISO();
 
-    console.log("[taskchain] Running highly optimized single-shot extraction...");
-    const response = await extractionChain.invoke({ transcript, speakers: speakers.join(", ") });
+    console.log(`[taskchain] Running extraction with current_date=${currentDate}...`);
+    const response = await extractionChain.invoke({
+      transcript,
+      speakers: speakers.join(", "),
+      current_date: currentDate,
+    });
 
     const validated = parseJsonContent(response?.content || response, {});
     const extractedTasks = Array.isArray(validated?.action_items) ? validated.action_items : [];

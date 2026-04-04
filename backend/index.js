@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import aiRoutes from "./src/routes/ai.js";
 import authRoutes from "./src/routes/auth.js";
+import googleAuthRoutes from "./src/routes/googleAuth.js";
 import dbRoutes from "./src/routes/db.js";
 import meetingRoute from "./src/routes/meetingRoute.js";
 import transcribeRoute from "./src/routes/transcribe.js";
@@ -37,6 +38,7 @@ app.use(express.json());
 
 app.use("/api/ai", aiRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/auth", googleAuthRoutes);
 app.use("/api", dbRoutes);
 app.use("/api", meetingRoute);
 app.use("/api/transcribe", transcribeRoute);

@@ -111,9 +111,24 @@ export function TaskTable({ tasks, onToggleComplete, onDeleteTask }: TaskTablePr
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={async () => {
+                            try {
+                              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/calendar/sync-task/${task.id}`, {
+                                method: "POST",
+                                credentials: "include"
+                              });
+                              if (res.ok) {
+                                alert("Success! Task added to Google Calendar.");
+                              } else {
+                                const err = await res.json();
+                                alert(err.error || "Failed to sync task. Make sure your Google account is connected.");
+                              }
+                            } catch (e) {
+                              alert("An error occurred during sync.");
+                            }
+                          }}>
                             <Edit className="mr-2 h-4 w-4" />
-                            Edit
+                            Add to Google Calendar
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="text-destructive focus:text-destructive"
