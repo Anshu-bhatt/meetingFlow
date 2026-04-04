@@ -103,19 +103,22 @@ export const fetchAllTasks = async (token?: string | null): Promise<Task[]> => {
   } catch (error) {
     // Backward-compatible fallback for environments where /api/tasks isn't available yet.
     console.warn("Falling back to meeting-by-meeting task fetch:", error)
-    const meetings = await fetchMeetings(token)
-    const taskLists = await Promise.all(
-      meetings.map(async (meeting) => {
-        try {
-          return await fetchTasksForMeeting(meeting.id, token)
-        } catch (nestedError) {
-          console.error(`Failed loading tasks for meeting ${meeting.id}:`, nestedError)
-          return []
-        }
-      }),
-    )
+    try {
+      const meetings = await fetchMeetings(token)
+      const taskLists = await Promise.all(
+        meetings.map(async (meeting) => {
+          try {
+            return await fetchTasksForMeeting(meeting.id, token)
+          } catch {
+            return []
+          }
+        }),
+      )
 
-    return taskLists.flat().map(mapBackendTaskToUiTask)
+      return taskLists.flat().map(mapBackendTaskToUiTask)
+    } catch {
+      return []
+    }
   }
 }
 

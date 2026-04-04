@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { AuthSplash } from "@/components/auth/auth-splash"
+import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,6 +28,7 @@ const authSubtitle = {
 
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter()
+  const { refreshUser } = useAuth()
   const [loginId, setLoginId] = useState("")
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
@@ -59,6 +61,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         throw new Error(data.error || "Authentication failed")
       }
 
+      await refreshUser()
       router.replace(data.redirectTo || "/dashboard")
       router.refresh()
     } catch (authError) {

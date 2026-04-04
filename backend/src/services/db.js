@@ -58,7 +58,9 @@ const buildLoginIdCandidates = (loginId) => {
 };
 
 const derivePasswordHash = (password, salt) => {
-  return crypto.pbkdf2Sync(password, salt, AUTH_ITERATIONS, AUTH_KEYLEN, AUTH_DIGEST).toString("hex");
+  // salt can be either a Buffer or a hex string
+  const saltBuffer = typeof salt === 'string' ? Buffer.from(salt, 'hex') : salt;
+  return crypto.pbkdf2Sync(password, saltBuffer, AUTH_ITERATIONS, AUTH_KEYLEN, AUTH_DIGEST).toString("hex");
 };
 
 export const hashPassword = (password) => {
