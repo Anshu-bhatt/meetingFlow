@@ -13,12 +13,20 @@ next.user-config.*
 # Environment variables - NEVER commit .env files with secrets
 .env
 .env.local
+.env.example
+.env.*.example
+.env.*
 .env.*.local
 .env.production.local
 .env.development.local
 .env.test.local
 .env.staging
 .env.*.private
+.envrc
+.direnv/
+.npmrc
+.yarnrc.yml
+.pnpmrc
 *.pem
 *.key
 *.crt
@@ -33,6 +41,12 @@ google-credentials.json
 firebase-key.json
 aws-credentials
 serviceAccountKey.json
+service-account*.json
+*service-account*.json
+*secret*.json
+*token*.json
+*private*.key
+*oauth*.json
 *-credentials.json
 **/credentials/**
 

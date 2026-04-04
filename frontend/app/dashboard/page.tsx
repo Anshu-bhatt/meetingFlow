@@ -25,6 +25,7 @@ type ExtractResponse = {
   totalTasks?: number
   highPriorityCount?: number
   speakers_detected?: string[]
+  slack_updated?: boolean
 }
 
 type ExtractionDraft = {
@@ -35,8 +36,103 @@ type ExtractionDraft = {
   speakersDetected: string[]
 }
 
+const DEFAULT_TRANSCRIPT = `emp1:
+The report generation is working, but it’s slow. I’ll implement caching for that.
+
+team lead:
+Good. Let’s set a deadline — can you finish it by April 10th?
+
+emp1:
+Yes, April 10th works.
+
+team lead:
+Also, the API response format has been unstable.
+
+emp1:
+Yeah, I’ll finalize and stabilize the API response by April 9th.
+
+emp2:
+On the frontend side, users are confused about whether the report is ready or not.
+
+team lead:
+Can you improve that?
+
+emp2:
+Yes, I’ll add a progress bar and loading indicator.
+
+team lead:
+Perfect. Let’s complete that by April 11th.
+
+emp3:
+Testing is getting delayed because large reports are crashing the system sometimes.
+
+team lead:
+emp1, can you look into memory optimization?
+
+emp1:
+Yes, I’ll implement streaming instead of loading everything into memory.
+
+team lead:
+Great. Let’s target April 12th for that.
+
+emp3:
+Also, we are not tracking whether users successfully download reports.
+
+team lead:
+emp2, can you coordinate with backend and fix analytics?
+
+emp2:
+Yes, I’ll handle frontend tracking and coordinate with emp1.
+
+team lead:
+Set deadline as April 13th.
+
+emp1:
+Also, API latency is high because of multiple LLM calls.
+
+team lead:
+Can we optimize that?
+
+emp1:
+Yes, I’ll try parallelizing calls or caching intermediate results.
+
+team lead:
+Okay, complete that by April 14th.
+
+emp3:
+From QA side, I’ll complete testing of all reporting features after these fixes.
+
+team lead:
+Good. Let’s set QA deadline as April 15th.
+
+team lead:
+Also, we need better visibility of tasks.
+
+emp2:
+I can create a checklist UI with status tracking.
+
+team lead:
+Nice, target April 12th for that.
+
+team lead:
+Let’s make sure we stick to deadlines this time. These are critical for release.`
+
 const TRANSCRIPT_KEY = "meetingflow.latestTranscript"
 const EXTRACTION_DRAFT_KEY = "meetingflow.latestExtractionDraft"
+
+const isLegacyTranscriptSample = (value: string) => {
+  const text = String(value || "")
+  if (!text) return false
+
+  // Either it matches a massive size or specific legacy snippets
+  // The user reported a 17505 character transcript they want to get rid of
+  if (text.length > 10000) return true
+
+  return (
+    text.includes("The report generation is working, but it's slow") &&
+    text.includes("Let's make sure we stick to deadlines this time")
+  )
+}
 
 const readExtractionDraft = (): ExtractionDraft | null => {
   try {
@@ -79,7 +175,7 @@ export default function DashboardPage() {
   const [extractionSummary, setExtractionSummary] = useState<string | null>(null)
   const [extractionStats, setExtractionStats] = useState<{ totalTasks: number; highPriorityCount: number } | null>(null)
   const [speakersDetected, setSpeakersDetected] = useState<string[]>([])
-  const [uploadedTranscript, setUploadedTranscript] = useState("")
+  const [uploadedTranscript, setUploadedTranscript] = useState(DEFAULT_TRANSCRIPT)
   const [isLoading, setIsLoading] = useState(false)
   const [isSyncingTasks, setIsSyncingTasks] = useState(false)
 
@@ -115,16 +211,29 @@ export default function DashboardPage() {
       const latestDraft = readExtractionDraft()
 
       if (latestDraft) {
-        setUploadedTranscript(latestDraft.transcript || latestTranscript || "")
-        setExtractedTasks(latestDraft.tasks)
-        setExtractionSummary(latestDraft.meetingSummary)
-        setExtractionStats(latestDraft.extractionStats)
-        setSpeakersDetected(latestDraft.speakersDetected)
+        const draftTranscript = latestDraft.transcript || latestTranscript || ""
+        if (isLegacyTranscriptSample(draftTranscript)) {
+          setUploadedTranscript(DEFAULT_TRANSCRIPT)
+          setExtractedTasks([])
+          setExtractionSummary(null)
+          setExtractionStats(null)
+          setSpeakersDetected([])
+        } else {
+          setUploadedTranscript(draftTranscript)
+          setExtractedTasks(latestDraft.tasks)
+          setExtractionSummary(latestDraft.meetingSummary)
+          setExtractionStats(latestDraft.extractionStats)
+          setSpeakersDetected(latestDraft.speakersDetected)
+        }
         return
       }
 
       if (latestTranscript?.trim()) {
-        setUploadedTranscript(latestTranscript)
+        const safeTranscript = isLegacyTranscriptSample(latestTranscript) ? DEFAULT_TRANSCRIPT : latestTranscript
+        setUploadedTranscript(safeTranscript)
+      } else {
+        // No latest transcript at all, ensure we have the default.
+        setUploadedTranscript(DEFAULT_TRANSCRIPT)
       }
     } catch (error) {
       console.error("Error loading latest transcript:", error)
@@ -177,6 +286,12 @@ export default function DashboardPage() {
         highPriorityCount: data.highPriorityCount ?? uniqueTasks.filter((task) => task.priority === "High").length,
       })
       setUploadedTranscript(transcript)
+
+      if (data.slack_updated) {
+        toast.success("Tasks updated to Slack", {
+          description: "All extracted tasks have been synced to your connected Slack workspace."
+        })
+      }
 
       try {
         window.localStorage.setItem(TRANSCRIPT_KEY, transcript)

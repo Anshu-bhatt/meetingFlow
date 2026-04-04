@@ -1,3 +1,17 @@
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# environment and secrets
+.env
+.env.*
+.env.example
+.env.*.example
+.npmrc
+credentials.json
+*secret*.json
+*token*.json
+*.pem
+*.key
+*.p12
+*.pfx

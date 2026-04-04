@@ -141,12 +141,41 @@ export function AuthForm({ mode }: AuthFormProps) {
 
           <div className="mt-6 text-sm text-muted-foreground">
             {mode === "login" ? (
-              <p>
-                Need an account? <Link href="/sign-up" className="text-foreground underline underline-offset-4">Create one</Link>
-              </p>
+              <>
+                <p className="mb-4">
+                  Need an account? <Link href="/sign-up" className="text-foreground font-medium underline underline-offset-4 hover:text-primary transition-colors">Create one</Link>
+                </p>
+                
+                <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    Evaluator Access (Demo)
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => { setLoginId("manager1@company.com"); setPassword("MeetFlow@123!"); }}
+                      className="group flex flex-col items-start gap-1 rounded-xl border border-border bg-background p-3 text-left transition-all hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]"
+                    >
+                      <span className="text-[10px] font-bold uppercase text-primary/70 tracking-tight">Admin Dashboard</span>
+                      <span className="text-sm font-medium text-foreground group-hover:text-primary">manager1@company.com</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setLoginId("emp1@gmail.com"); setPassword("MeetFlow@123!"); }}
+                      className="group flex flex-col items-start gap-1 rounded-xl border border-border bg-background p-3 text-left transition-all hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]"
+                    >
+                      <span className="text-[10px] font-bold uppercase text-primary/70 tracking-tight">Employee Dashboard</span>
+                      <span className="text-sm font-medium text-foreground group-hover:text-primary">emp1@gmail.com</span>
+                    </button>
+                  </div>
+                  <p className="mt-3 text-[10px] text-muted-foreground/60 italic">
+                    Password: <span className="font-mono font-medium text-foreground/80">MeetFlow@123!</span> (Click above to auto-fill)
+                  </p>
+                </div>
+              </>
             ) : (
               <p>
-                Already have access? <Link href="/sign-in" className="text-foreground underline underline-offset-4">Sign in</Link>
+                Already have access? <Link href="/sign-in" className="text-foreground font-medium underline underline-offset-4 hover:text-primary transition-colors">Sign in</Link>
               </p>
             )}
           </div>

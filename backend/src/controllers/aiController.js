@@ -3,6 +3,7 @@ import { getIntegration } from "../services/db.js";
 import { sendToSlack } from "../services/slack/slackService.js";
 
 export const extractTasks = async (req, res) => {
+	let slackUpdated = false;
 	try {
 		const { transcript } = req.body;
 
@@ -43,6 +44,7 @@ export const extractTasks = async (req, res) => {
 
 				const slackResult = await sendToSlack(slackPayload, { webhookUrl });
 				if (slackResult?.sent) {
+					slackUpdated = true;
 					console.log(`[extractTasks] ✓ Slack notification sent (${slackResult.parts || 1} part(s))`);
 				} else {
 					console.log(`[extractTasks] ↷ Slack notification skipped: ${slackResult?.reason || "Unknown reason"}`);
@@ -59,6 +61,7 @@ export const extractTasks = async (req, res) => {
 			totalTasks: result.totalTasks ?? (result.tasks || []).length,
 			highPriorityCount: result.highPriorityCount ?? (result.tasks || []).filter((task) => task.priority === "High").length,
 			speakers_detected: result.speakers_detected || [],
+			slack_updated: slackUpdated,
 		});
 	} catch (err) {
 		console.error("[extractTasks] ❌ ERROR:", err.message);
