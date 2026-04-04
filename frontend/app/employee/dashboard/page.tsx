@@ -24,12 +24,12 @@ export default function EmployeeDashboardPage() {
   const [loading, setLoading] = useState(true)
 
   const isGoogleConnected = !!user?.google_token_expires_at;
-  const googleAuthUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/google`;
+  const googleAuthUrl = "/api/auth/google";
 
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/me`, {
+        const response = await fetch(`/api/auth/me`, {
           credentials: "include",
         })
           if (!response.ok) {
@@ -52,7 +52,7 @@ export default function EmployeeDashboardPage() {
         setUser(data.user)
 
         try {
-          const tasksRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/tasks`, {
+          const tasksRes = await fetch(`/api/tasks`, {
             credentials: "include",
           })
           if (tasksRes.ok) {
@@ -92,7 +92,7 @@ export default function EmployeeDashboardPage() {
     setTasks(newTasks);
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/tasks/${taskId}`, {
+      await fetch(`/api/tasks/${taskId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -104,7 +104,7 @@ export default function EmployeeDashboardPage() {
   }
 
   const handleSignOut = async () => {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
+    await fetch(`/api/auth/logout`, {
       method: "POST",
       credentials: "include",
     })

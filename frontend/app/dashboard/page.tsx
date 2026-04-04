@@ -257,7 +257,7 @@ export default function DashboardPage() {
 
     try {
       const token = await getToken().catch(() => null)
-      const endpoint = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/ai/extract-tasks`
+      const endpoint = "/api/ai/extract-tasks"
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {

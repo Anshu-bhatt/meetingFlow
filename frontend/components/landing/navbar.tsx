@@ -20,7 +20,7 @@ export function Navbar() {
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/me`, {
+        const response = await fetch(`/api/auth/me`, {
           credentials: "include",
         })
 
@@ -41,7 +41,7 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
+      await fetch(`/api/auth/logout`, {
         method: "POST",
         credentials: "include",
       })

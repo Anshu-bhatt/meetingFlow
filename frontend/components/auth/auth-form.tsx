@@ -40,15 +40,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     setError(null)
 
     try {
-      const getApiUrl = () => {
-        if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL
-        if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-          return "https://meetingflow-backend.onrender.com"
-        }
-        return "http://localhost:5000"
-      }
-
-      const apiUrl = getApiUrl()
+      const apiUrl = ""
       const response = await fetch(`${apiUrl}/api/auth/${mode}`, {
         method: "POST",
         headers: {

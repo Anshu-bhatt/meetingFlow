@@ -42,8 +42,7 @@ export default function OnboardingPage() {
     try {
       const token = await getToken().catch(() => null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-      const response = await fetch(`${apiUrl}/api/auth/onboard`, {
+      const response = await fetch(`/api/auth/onboard`, {
         method: "POST",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),

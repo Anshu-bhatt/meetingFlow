@@ -1,7 +1,7 @@
 import type { Task } from "@/lib/types"
 import { getOrCreateWorkspaceId } from "@/lib/workspace-id"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API_BASE = ""
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE"

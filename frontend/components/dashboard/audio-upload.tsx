@@ -14,7 +14,7 @@ export default function AudioUpload({ onTranscript }: Props) {
   const [filename, setFilename] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+  const apiUrl = ""
 
   const isUploading = status === "uploading" || status === "transcribing"
 

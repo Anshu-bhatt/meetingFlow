@@ -113,7 +113,7 @@ export function TaskTable({ tasks, onToggleComplete, onDeleteTask }: TaskTablePr
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={async () => {
                             try {
-                              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/calendar/sync-task/${task.id}`, {
+                              const res = await fetch(`/api/auth/calendar/sync-task/${task.id}`, {
                                 method: "POST",
                                 credentials: "include"
                               });
