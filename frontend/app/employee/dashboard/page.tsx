@@ -25,7 +25,12 @@ export default function EmployeeDashboardPage() {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/me`, {
           credentials: "include",
         })
-        const data = await response.json().catch(() => ({} as { user?: AuthUser | null }))
+          if (!response.ok) {
+            router.replace("/sign-in")
+            return
+          }
+
+          const data = await response.json().catch(() => ({} as { user?: AuthUser | null }))
 
         if (!data.user) {
           router.replace("/sign-in")
@@ -38,8 +43,7 @@ export default function EmployeeDashboardPage() {
         }
 
         setUser(data.user)
-      } catch (error) {
-        console.error("[EmployeeDashboard] Session lookup failed:", error)
+        } catch {
         router.replace("/sign-in")
       } finally {
         setLoading(false)

@@ -189,13 +189,10 @@ export const ensureSeedAuthUsers = async () => {
       .upsert(
         [
           {
-            workspace_id: loginId,
             login_id: loginId,
             name: user.name,
-            email: loginId,
             role: user.role,
             password_hash: passwordHash,
-            onboarded: true,
             session_token: null,
             session_expires_at: null,
             updated_at: new Date().toISOString(),

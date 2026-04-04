@@ -23,10 +23,14 @@ export function Navbar() {
           credentials: "include",
         })
 
-        const data = await response.json().catch(() => ({} as { user?: AuthUser | null }))
-        setUser(data.user ?? null)
-      } catch (error) {
-        console.error("[Navbar] Session lookup failed:", error)
+          if (!response.ok) {
+            setUser(null)
+            return
+          }
+
+          const data = await response.json().catch(() => ({} as { user?: AuthUser | null }))
+          setUser(data.user ?? null)
+        } catch {
         setUser(null)
       }
     }

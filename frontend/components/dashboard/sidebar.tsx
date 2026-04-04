@@ -16,6 +16,12 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
+type AuthUser = {
+  login_id: string
+  name: string
+  role: string
+}
+
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/tasks", icon: CheckSquare, label: "Tasks" },
@@ -26,13 +32,36 @@ const navItems = [
 export function DashboardSidebar() {
   const pathname = usePathname()
   const [workspaceId, setWorkspaceId] = useState("workspace-server")
+  const [user, setUser] = useState<AuthUser | null>(null)
 
   useEffect(() => {
     setWorkspaceId(getOrCreateWorkspaceId())
   }, [])
 
-  const fullName = "Local Workspace"
-  const email = workspaceId
+  useEffect(() => {
+    const loadSession = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/me`, {
+          credentials: "include",
+        })
+
+          if (!response.ok) {
+            setUser(null)
+            return
+          }
+
+          const data = await response.json().catch(() => ({} as { user?: AuthUser | null }))
+          setUser(data.user ?? null)
+        } catch {
+        setUser(null)
+      }
+    }
+
+    loadSession()
+  }, [])
+
+  const fullName = user?.name || user?.login_id || "Local Workspace"
+  const email = user?.login_id || workspaceId
   const initials =
     fullName
       .split(" ")
