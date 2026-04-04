@@ -15,10 +15,6 @@ export function Hero() {
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Left content */}
           <div className="space-y-8">
-            <Badge variant="secondary" className="wm-pill w-fit px-4 py-1.5 text-sm font-medium">
-              Watermelon UI Edition
-            </Badge>
-            
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-balance">
               Turn Meetings into Action - <span className="wm-gradient-text">Instantly</span>
             </h1>

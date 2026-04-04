@@ -3,19 +3,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-page-header"
-import { BellRing, Bot, Link2, ShieldCheck, Slack, Settings2, Smartphone, Zap } from "lucide-react"
+import { BellRing, Bot, ShieldCheck, Slack, Settings2, Smartphone, Zap } from "lucide-react"
 
 const integrations = [
   {
     icon: Slack,
     title: "Slack",
     description: "Send task reminders and assignee notifications.",
-    status: "Planned",
-  },
-  {
-    icon: Link2,
-    title: "Jira",
-    description: "Create issues from extracted tasks.",
     status: "Planned",
   },
   {
