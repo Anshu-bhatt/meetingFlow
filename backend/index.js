@@ -6,6 +6,7 @@ import authRoutes from "./src/routes/auth.js";
 import dbRoutes from "./src/routes/db.js";
 import meetingRoute from "./src/routes/meetingRoute.js";
 import transcribeRoute from "./src/routes/transcribe.js";
+import { ensureSeedAuthUsers } from "./src/services/db.js";
 
 dotenv.config();
 dotenv.config({ path: "../.env" });
@@ -41,6 +42,16 @@ app.use("/api/transcribe", transcribeRoute);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-	console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+	try {
+		await ensureSeedAuthUsers();
+		app.listen(PORT, () => {
+			console.log(`Server running on port ${PORT}`);
+		});
+	} catch (error) {
+		console.error("Failed to seed auth users:", error.message);
+		process.exit(1);
+	}
+};
+
+startServer();

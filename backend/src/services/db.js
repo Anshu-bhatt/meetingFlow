@@ -11,10 +11,44 @@ const AUTH_KEYLEN = 64;
 const AUTH_DIGEST = "sha512";
 const AUTH_TABLE = "app_users";
 const MANAGER_DOMAIN = "@company.com";
+const DEFAULT_AUTH_USERS = [
+  { loginId: "manager@company.com", name: "Manager", role: "manager", password: "MeetFlow@123!" },
+  { loginId: "manager1@company.com", name: "Manager One", role: "manager", password: "MeetFlow@123!" },
+  { loginId: "manager2@company.com", name: "Manager Two", role: "manager", password: "MeetFlow@123!" },
+  { loginId: "manager3@company.com", name: "Manager Three", role: "manager", password: "MeetFlow@123!" },
+  { loginId: "emp@gmail.com", name: "Employee", role: "employee", password: "MeetFlow@123!" },
+  { loginId: "emp1@gmail.com", name: "Employee One", role: "employee", password: "MeetFlow@123!" },
+  { loginId: "emp2@gmail.com", name: "Employee Two", role: "employee", password: "MeetFlow@123!" },
+  { loginId: "emp3@gmail.com", name: "Employee Three", role: "employee", password: "MeetFlow@123!" },
+];
 
 const inferRoleFromLoginId = (loginId) => {
   const normalizedLoginId = String(loginId || "").trim().toLowerCase();
   return normalizedLoginId.endsWith(MANAGER_DOMAIN) ? "manager" : "employee";
+};
+
+const buildLoginIdCandidates = (loginId) => {
+  const normalizedLoginId = String(loginId || "").trim().toLowerCase();
+  if (!normalizedLoginId) return [];
+
+  const candidates = [normalizedLoginId];
+  const atIndex = normalizedLoginId.lastIndexOf("@");
+
+  if (atIndex > 0) {
+    const localPart = normalizedLoginId.slice(0, atIndex);
+    const domainPart = normalizedLoginId.slice(atIndex);
+    const strippedLocalPart = localPart.replace(/\d+$/, "");
+
+    if (strippedLocalPart && strippedLocalPart !== localPart) {
+      candidates.push(`${strippedLocalPart}${domainPart}`);
+    }
+
+    if (localPart && !localPart.endsWith("1")) {
+      candidates.push(`${localPart}1${domainPart}`);
+    }
+  }
+
+  return [...new Set(candidates)];
 };
 
 const derivePasswordHash = (password, salt) => {
@@ -51,17 +85,21 @@ export const sanitizeAppUser = (user) => {
 };
 
 export const getAppUserByLoginId = async (loginId) => {
-  const normalizedLoginId = String(loginId || "").trim().toLowerCase();
-  if (!normalizedLoginId) return null;
+  const candidates = buildLoginIdCandidates(loginId);
+  if (!candidates.length) return null;
 
-  const { data, error } = await supabase
-    .from(AUTH_TABLE)
-    .select("*")
-    .eq("login_id", normalizedLoginId)
-    .single();
+  for (const candidate of candidates) {
+    const { data, error } = await supabase
+      .from(AUTH_TABLE)
+      .select("*")
+      .eq("login_id", candidate)
+      .single();
 
-  if (error && error.code !== "PGRST116") throw error;
-  return data || null;
+    if (error && error.code !== "PGRST116") throw error;
+    if (data) return data;
+  }
+
+  return null;
 };
 
 export const getAppUserBySessionToken = async (sessionToken) => {
@@ -133,6 +171,47 @@ export const clearAppUserSession = async (sessionToken) => {
 
   if (error) throw error;
   return data?.[0] || null;
+};
+
+export const ensureSeedAuthUsers = async () => {
+  if (!supabaseUrl || !supabaseKey) {
+    return [];
+  }
+
+  const seededUsers = [];
+
+  for (const user of DEFAULT_AUTH_USERS) {
+    const loginId = String(user.loginId || "").trim().toLowerCase();
+    const passwordHash = hashPassword(user.password);
+
+    const { data, error } = await supabase
+      .from(AUTH_TABLE)
+      .upsert(
+        [
+          {
+            workspace_id: loginId,
+            login_id: loginId,
+            name: user.name,
+            email: loginId,
+            role: user.role,
+            password_hash: passwordHash,
+            onboarded: true,
+            session_token: null,
+            session_expires_at: null,
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        { onConflict: "login_id" }
+      )
+      .select();
+
+    if (error) throw error;
+    if (data?.[0]) {
+      seededUsers.push(sanitizeAppUser(data[0]));
+    }
+  }
+
+  return seededUsers;
 };
 
 
