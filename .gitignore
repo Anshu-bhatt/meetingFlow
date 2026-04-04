@@ -168,3 +168,5 @@ env/
 *.key.json
 webhook-secret.txt
 client-secret.txt
+.vercel
+.env*.local
