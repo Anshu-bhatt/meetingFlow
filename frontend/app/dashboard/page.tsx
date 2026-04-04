@@ -7,6 +7,7 @@ import { AIInput } from "@/components/dashboard/ai-input"
 import AudioUpload from "@/components/dashboard/audio-upload"
 import { ExtractedTasks } from "@/components/dashboard/extracted-tasks"
 import { TaskTable } from "@/components/dashboard/task-table"
+import { AdminEmployeePerformance } from "@/components/dashboard/admin-employee-performance"
 import { toast } from "sonner"
 import type { Task } from "@/lib/types"
 import {
@@ -365,6 +366,8 @@ export default function DashboardPage() {
         />
 
         <StatsCards stats={stats} />
+        
+        <AdminEmployeePerformance savedTasks={savedTasks} extractedTasks={extractedTasks} />
 
         <AudioUpload onTranscript={handleTranscriptUpload} />
 

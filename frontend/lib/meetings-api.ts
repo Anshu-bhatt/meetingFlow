@@ -55,6 +55,7 @@ export interface BackendMeeting {
 export interface BackendTask {
   id: string
   title: string
+  assignee?: string | null
   assignee_name?: string | null
   priority?: string | null
   deadline?: string | null
@@ -80,7 +81,7 @@ const toUiCompleted = (status?: string | null): boolean => {
 export const mapBackendTaskToUiTask = (task: BackendTask): Task => ({
   id: String(task.id),
   title: task.title || "Untitled task",
-  assignee: task.assignee_name || "Unassigned",
+  assignee: task.assignee || task.assignee_name || "Unassigned",
   priority: toUiPriority(task.priority),
   deadline: task.deadline || null,
   completed: toUiCompleted(task.status),
@@ -159,6 +160,7 @@ export const updateTaskById = async (id: string, updates: Partial<Task>, token?:
 
   if (typeof updates.assignee === "string") {
     payload.assignee_name = updates.assignee
+    payload.assignee = updates.assignee
   }
 
   if (updates.deadline !== undefined) {

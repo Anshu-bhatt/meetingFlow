@@ -319,7 +319,8 @@ export const saveTasks = async (meetingId, tasks) => {
   const taskRecords = tasks.map((task) => ({
     meeting_id: meetingId,
     title: task.title,
-    assignee_name: task.assignee,
+    assignee_name: task.assignee, 
+    assignee: task.assignee,
     priority: task.priority?.toLowerCase() || "medium",
     status: "pending",
     deadline: task.deadline ? task.deadline.split("T")[0] : null,

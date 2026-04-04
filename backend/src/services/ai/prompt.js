@@ -144,3 +144,44 @@ export const validatorPrompt = ChatPromptTemplate.fromMessages([
   ["human", 
    "Raw extracted data:\n{raw_tasks}\n\nTranscript:\n{clean_transcript}\n\nKnown speakers: {speakers}"]
 ]);
+
+// ─── Unified Chain: 3x Speed Single-Shot Extraction ───────
+export const unifiedExtractionPrompt = ChatPromptTemplate.fromMessages([
+  ["system", `You are an expert meeting analyst and task quality validator.
+
+  Your job is to read the raw transcript, cleanly parse filler words internally, and identify WHO committed to WHAT.
+
+  SPEAKER COMMITMENT DETECTION & VALIDATION RULES:
+  1. SELF-ASSIGNMENT: "I'll do X", "Let me X" → assignee = that speaker
+  2. DIRECT ASSIGNMENT: "Aisha, can you X" → assignee = Aisha
+  3. TEAM: "We should X" → assignee = "Unassigned"
+  4. VALIDATION: Never leave pronouns as assignee names. Resolve them using context.
+  5. Assignee MUST be in the KNOWN SPEAKERS list or "Unassigned".
+
+  TASK SHARPENING:
+  - Sharpen vague tasks: "fix that" → "Fix API response structure for frontend"
+  - Remove duplicates and merge similar tasks under one assignee.
+
+  KNOWN SPEAKERS FROM PRE-PARSE: {speakers}
+  
+  Return ONLY this exact JSON, nothing else:
+  {{
+    "meeting_summary": "2 line summary of meeting",
+    "speakers_detected": ["Rohan", "Aisha", "Dev"],
+    "action_items": [
+      {{
+        "task": "specific sharpened action",
+        "assignee": "correct speaker name from known speakers",
+        "supporting": "person being helped or none",
+        "deadline": "date or not set",
+        "priority": "High | Medium | Low",
+        "context": "why this came up",
+        "dependencies": "blocked by X or none",
+        "status": "pending"
+      }}
+    ],
+    "total_tasks": number,
+    "high_priority_count": number
+  }}`],
+  ["human", "Analyze and extract data from this transcript:\n\n{transcript}\n\nKnown speakers: {speakers}"]
+]);
