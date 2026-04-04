@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Sparkles, X } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
+import { LabeledProgressIndicator } from "@/components/ui/labeled-progress-indicator"
 
 interface AIInputProps {
   onExtract: (transcript: string) => void | Promise<void>
@@ -52,25 +53,38 @@ Example:
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="relative">
-          <Textarea
-            placeholder={placeholder}
-            value={transcript}
-            onChange={(e) => setTranscript(e.target.value)}
-            disabled={isLoading}
-            className="min-h-[180px] bg-secondary/50 border-border/70 resize-none"
-          />
-          {transcript && (
-            <button
-              onClick={handleClear}
+        {isLoading ? (
+          <div className="min-h-[180px] flex items-center justify-center p-8 bg-secondary/50 rounded-md border border-border/70 overflow-hidden flex-col gap-4">
+             <LabeledProgressIndicator 
+               labels={[
+                 "Analyzing Transcript...", 
+                 "Extracting Tasks...", 
+                 "Identifying Speakers...", 
+                 "Finalizing Tasks..."
+               ]} 
+             />
+          </div>
+        ) : (
+          <div className="relative">
+            <Textarea
+              placeholder={placeholder}
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
               disabled={isLoading}
-              className="absolute top-2 right-2 p-2 hover:bg-destructive/20 rounded-md text-muted-foreground hover:text-destructive transition-colors"
-              title="Clear transcript"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+              className="min-h-[180px] bg-secondary/50 border-border/70 resize-none"
+            />
+            {transcript && (
+              <button
+                onClick={handleClear}
+                disabled={isLoading}
+                className="absolute top-2 right-2 p-2 hover:bg-destructive/20 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+                title="Clear transcript"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
         <div className="flex gap-2">
           <Button
             onClick={handleSubmit}

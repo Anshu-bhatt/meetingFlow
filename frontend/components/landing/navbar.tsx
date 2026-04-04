@@ -5,6 +5,7 @@ import { Zap } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
+import { ContinuousTabs } from "@/components/ui/continuous-tabs"
 
 export function Navbar() {
   const router = useRouter()
@@ -29,17 +30,17 @@ export function Navbar() {
           </Link>
           
           {/* Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Features
-            </Link>
-            <Link href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Pricing
-            </Link>
-            <Link href="#docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Docs
-            </Link>
-          </nav>
+          <div className="hidden md:flex items-center gap-8">
+            <ContinuousTabs
+              tabs={[
+                { id: "features", label: "Features" },
+                { id: "pricing", label: "Pricing" },
+                { id: "docs", label: "Docs" }
+              ]}
+              defaultActiveId="features"
+              onChange={(id) => router.push(`/#${id}`)}
+            />
+          </div>
           
           {/* CTA */}
           <div className="flex items-center gap-4">

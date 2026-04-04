@@ -1,5 +1,5 @@
 import { getAvailableLlms } from "./llm.js";
-import { cleanerPrompt, extractorPrompt, validatorPrompt } from "./prompt.js";
+import { unifiedExtractionPrompt } from "./prompt.js";
 
 const normalizeText = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const MAX_TRANSCRIPT_CHARS = Number(process.env.AI_MAX_TRANSCRIPT_CHARS || 6000);
@@ -432,33 +432,16 @@ const buildFallbackResult = (transcript, reason = "", speakers = []) => {
 };
 
 const runChainWithLlm = async (llm, transcript, speakers) => {
-    const cleanerChain = cleanerPrompt.pipe(llm);
-    const extractorChain = extractorPrompt.pipe(llm);
-    const validatorChain = validatorPrompt.pipe(llm);
+    const extractionChain = unifiedExtractionPrompt.pipe(llm);
 
-    console.log("[taskchain] Stage 1: clean");
-    const cleanedResponse = await cleanerChain.invoke({ transcript });
-    const cleanTranscript = normalizeText(toText(cleanedResponse?.content || cleanedResponse));
+    console.log("[taskchain] Running highly optimized single-shot extraction...");
+    const response = await extractionChain.invoke({ transcript, speakers: speakers.join(", ") });
 
-    console.log("[taskchain] Stage 2: extract");
-    const extractedResponse = await extractorChain.invoke({
-      clean_transcript: cleanTranscript,
-      speakers: speakers.join(", "),
-    });
-    const extracted = parseJsonContent(extractedResponse?.content || extractedResponse, []);
-    const extractedTasks = Array.isArray(extracted) ? extracted : extracted?.action_items || [];
+    const validated = parseJsonContent(response?.content || response, {});
+    const extractedTasks = Array.isArray(validated?.action_items) ? validated.action_items : [];
 
-    console.log("[taskchain] Stage 3: validate");
-    const validatedResponse = await validatorChain.invoke({
-      raw_tasks: JSON.stringify(extractedTasks),
-      clean_transcript: cleanTranscript,
-      speakers: speakers.join(", "),
-    });
-
-    const validated = parseJsonContent(validatedResponse?.content || validatedResponse, {});
-    const sourceTasks = Array.isArray(validated?.action_items) ? validated.action_items : extractedTasks;
     const normalizedTasks = dedupeTasks(
-      sourceTasks
+      extractedTasks
         .map((task, index) => normalizeTask(task, index, speakers))
         .filter(Boolean),
     ).map((task) => {
@@ -466,12 +449,12 @@ const runChainWithLlm = async (llm, transcript, speakers) => {
         return task;
       }
 
-        const inferredFromTurns = inferAssigneeFromTranscript(task.title, cleanTranscript, speakers);
+        const inferredFromTurns = inferAssigneeFromTranscript(task.title, transcript, speakers);
         if (inferredFromTurns) {
           return { ...task, assignee: inferredFromTurns };
         }
 
-        const inferredFromSentence = inferAssigneeFromSentencePatterns(task.title, cleanTranscript);
+        const inferredFromSentence = inferAssigneeFromSentencePatterns(task.title, transcript);
         return inferredFromSentence ? { ...task, assignee: inferredFromSentence } : task;
     });
 

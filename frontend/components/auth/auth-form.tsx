@@ -7,7 +7,7 @@ import Link from "next/link"
 import { AuthSplash } from "@/components/auth/auth-splash"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { FloatingInput } from "@/components/ui/floating-input"
 import { Label } from "@/components/ui/label"
 
 type AuthMode = "login" | "signup"
@@ -84,37 +84,35 @@ export function AuthForm({ mode }: AuthFormProps) {
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="loginId">Login ID</Label>
-              <Input
+              <FloatingInput
                 id="loginId"
                 name="loginId"
+                label="Login ID"
                 value={loginId}
                 onChange={(event) => setLoginId(event.target.value)}
-                placeholder="employee1 or manager1"
                 required
               />
             </div>
 
             {mode === "signup" ? (
               <div className="space-y-2">
-                <Label htmlFor="name">Display name</Label>
-                <Input
+                <FloatingInput
                   id="name"
                   name="name"
+                  label="Display name"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="Jane Doe"
                   required
                 />
               </div>
             ) : null}
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
+              <FloatingInput
                 id="password"
                 name="password"
                 type="password"
+                label="Password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required

@@ -260,16 +260,22 @@ router.get("/tasks", requireAuth, async (req, res) => {
   }
 });
 
-// Update task status
+// Update a task
 router.put("/tasks/:id", requireAuth, async (req, res) => {
   try {
-    const { status, priority, deadline, assignee_name } = req.body;
+    const { status, priority, deadline, assignee_name, assignee } = req.body;
     const updates = {};
 
     if (status) updates.status = status;
     if (priority) updates.priority = priority;
-    if (deadline) updates.deadline = deadline;
-    if (assignee_name) updates.assignee_name = assignee_name;
+    if (deadline !== undefined) updates.deadline = deadline;
+    
+    // Explicitly resolve assignee binding due to column variations
+    const resolvedAssignee = assignee || assignee_name;
+    if (resolvedAssignee !== undefined) {
+      updates.assignee_name = resolvedAssignee;
+      updates.assignee = resolvedAssignee;
+    }
 
     const task = await updateTask(req.params.id, updates);
     res.json({ task });
