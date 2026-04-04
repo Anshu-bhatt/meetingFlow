@@ -88,9 +88,9 @@ export function TaskTable({ tasks, onToggleComplete, onDeleteTask }: TaskTablePr
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary">
-                          {task.assignee.split(" ").map(n => n[0]).join("")}
+                          {(task.assignee || "Unassigned").split(" ").filter(Boolean).map(n => n[0]).join("")}
                         </div>
-                        <span className="text-sm">{task.assignee}</span>
+                        <span className="text-sm">{task.assignee || "Unassigned"}</span>
                       </div>
                     </TableCell>
                     <TableCell>

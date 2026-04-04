@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { EmployeeAnalytics } from "@/components/employee/employee-analytics"
+import { TaskTable } from "@/components/dashboard/task-table"
 
 type AuthUser = {
   login_id: string
@@ -52,7 +53,13 @@ export default function EmployeeDashboardPage() {
           })
           if (tasksRes.ok) {
             const tasksData = await tasksRes.json()
-            setTasks(tasksData.tasks || [])
+            setTasks(
+              tasksData.tasks?.map((t: any) => ({
+                ...t,
+                assignee: t.assignee ?? t.assignee_name ?? "Unassigned",
+                completed: t.status === "completed",
+              })) || []
+            )
           }
         } catch (taskErr) {
           console.error("Failed to fetch tasks", taskErr)
@@ -66,6 +73,31 @@ export default function EmployeeDashboardPage() {
 
     loadSession()
   }, [router])
+
+  const handleToggleComplete = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    // Toggle logically mapping "completed" vs "pending"
+    const newStatus = task.completed ? "pending" : "completed";
+    
+    // Optimistic UI state overwrite so React drives live visual graphs simultaneously 
+    const newTasks = tasks.map(t => 
+      t.id === taskId ? { ...t, status: newStatus, completed: newStatus === "completed" } : t
+    );
+    setTasks(newTasks);
+
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+        credentials: "include"
+      });
+    } catch (err) {
+      console.error("Failed to update task status", err);
+    }
+  }
 
   const handleSignOut = async () => {
     await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
@@ -119,6 +151,14 @@ export default function EmployeeDashboardPage() {
         }} />
         
         <EmployeeAnalytics tasks={tasks} />
+        
+        <div className="mt-8">
+          <TaskTable 
+            tasks={tasks} 
+            onToggleComplete={handleToggleComplete} 
+            onDeleteTask={() => {}} 
+          />
+        </div>
       </div>
     </main>
   )

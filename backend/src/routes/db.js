@@ -17,7 +17,6 @@ import {
   saveIntegration,
   getIntegration,
   getAppUserByLoginId,
-  getTasksByAssignee,
 } from "../services/db.js";
 
 const router = express.Router();
@@ -57,6 +56,25 @@ const buildTaskKey = (task) => {
   const assignee = normalizeTaskText(task?.assignee || task?.assignee_name || "Unassigned");
   const deadline = normalizeTaskDeadline(task?.deadline);
   return `${title}|${assignee}|${deadline}`;
+};
+
+const buildAssigneeCandidates = (user) => {
+  const candidates = new Set();
+  const add = (value) => {
+    const normalized = normalizeTaskText(value);
+    if (normalized) candidates.add(normalized);
+  };
+
+  add(user?.name);
+  add(user?.login_id);
+
+  const loginId = String(user?.login_id || "").trim().toLowerCase();
+  const atIndex = loginId.indexOf("@");
+  if (atIndex > 0) {
+    add(loginId.slice(0, atIndex));
+  }
+
+  return candidates;
 };
 
 // ============================================================================
@@ -220,7 +238,16 @@ router.get("/tasks", requireAuth, async (req, res) => {
     if (req.auth?.role === "employee") {
       const user = await getAppUserByLoginId(req.auth.loginId);
       if (!user) return res.status(404).json({ error: "User not found" });
-      const tasks = await getTasksByAssignee(user.name);
+
+      const workspaceTasks = await getTasksByWorkspace(req.auth?.userId);
+      const assigneeCandidates = buildAssigneeCandidates(user);
+      
+      const tasks = (workspaceTasks || []).filter((task) => {
+        const name = (task?.assignee_name || "").toLowerCase().trim();
+        if (!name || name === "unassigned" || name === "undefined" || name === "null") return false;
+        return assigneeCandidates.has(name);
+      });
+
       return res.json({ tasks });
     }
 
