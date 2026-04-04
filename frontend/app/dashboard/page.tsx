@@ -201,20 +201,8 @@ export default function DashboardPage() {
         return
       }
 
-      await saveMeetingWithTasks(
-        {
-          title: `Meeting - ${new Date().toLocaleString()}`,
-          transcript,
-          tasks: uniqueTasks,
-        },
-        token,
-      )
-
-      await refreshSavedTasks()
-      emitWorkspaceDataChanged()
-
-      toast.success(`${uniqueTasks.length} tasks extracted and saved`, {
-        description: "Tasks are now visible on Dashboard, Tasks, and Meetings pages.",
+      toast.success(`${uniqueTasks.length} tasks extracted`, {
+        description: "Review assignees and click Save All Tasks to store them in the database.",
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not extract tasks"
@@ -224,7 +212,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [getToken, makeTaskFingerprint, refreshSavedTasks])
+  }, [getToken, makeTaskFingerprint])
 
   const handleUpdateExtracted = useCallback((id: string, updates: Partial<Task>) => {
     setExtractedTasks((previous) => {
@@ -273,7 +261,7 @@ export default function DashboardPage() {
 
     try {
       const token = await getToken().catch(() => null)
-      await saveMeetingWithTasks(
+      const saveResult = await saveMeetingWithTasks(
         {
           title: `Meeting - ${new Date().toLocaleString()}`,
           transcript,
@@ -288,15 +276,22 @@ export default function DashboardPage() {
 
       persistExtractionDraft({
         transcript,
-        tasks: extractedTasks,
+        tasks: [],
         meetingSummary: extractionSummary,
         extractionStats,
         speakersDetected,
       })
 
-      toast.success("All tasks saved", {
-        description: "Tasks have been synced across Dashboard, Tasks, and Meetings.",
-      })
+      const insertedCount = Array.isArray(saveResult?.tasks) ? saveResult.tasks.length : 0
+      if (insertedCount === 0) {
+        toast.info("No new tasks were saved", {
+          description: "These tasks already exist in the database.",
+        })
+      } else {
+        toast.success(`${insertedCount} task${insertedCount === 1 ? "" : "s"} saved`, {
+          description: "Tasks have been synced across Dashboard, Tasks, and Meetings.",
+        })
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save tasks"
       toast.error("Could not save tasks", {

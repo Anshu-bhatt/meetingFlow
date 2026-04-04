@@ -1,4 +1,6 @@
 import { generateTasks } from "../services/ai/taskchain.js";
+import { getIntegration } from "../services/db.js";
+import { sendToSlack } from "../services/slack/slackService.js";
 
 export const extractTasks = async (req, res) => {
 	try {
@@ -21,6 +23,34 @@ export const extractTasks = async (req, res) => {
 		result.tasks?.forEach((task, i) => {
 			console.log(`[extractTasks] Task ${i + 1}: "${task.title.substring(0, 50)}..." → ${task.assignee || "Unassigned"}`);
 		});
+
+		const workspaceId = req.auth?.userId;
+		if (Array.isArray(result.tasks) && result.tasks.length > 0) {
+			try {
+				const integration = workspaceId ? await getIntegration(workspaceId) : null;
+				const webhookUrl = integration?.slack_token || process.env.SLACK_WEBHOOK_URL;
+
+				const slackPayload = {
+					meetingTitle: req.body?.title || "Transcript Extraction",
+					meetingSummary: result.meetingSummary || "",
+					tasks: result.tasks.map((task) => ({
+						title: task.title,
+						assignee: task.assignee || "Unassigned",
+						deadline: task.deadline || null,
+						priority: task.priority || "medium",
+					})),
+				};
+
+				const slackResult = await sendToSlack(slackPayload, { webhookUrl });
+				if (slackResult?.sent) {
+					console.log(`[extractTasks] ✓ Slack notification sent (${slackResult.parts || 1} part(s))`);
+				} else {
+					console.log(`[extractTasks] ↷ Slack notification skipped: ${slackResult?.reason || "Unknown reason"}`);
+				}
+			} catch (slackError) {
+				console.error("[extractTasks] Slack notification failed:", slackError.message);
+			}
+		}
 		console.log("[extractTasks] ════════════════════════════════════════\n");
 
 		res.json({

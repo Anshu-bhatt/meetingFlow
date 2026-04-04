@@ -17,13 +17,14 @@ const configuredOrigins = (process.env.FRONTEND_URL || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const allowedOrigins = new Set([...defaultOrigins, ...configuredOrigins]);
+const isLocalDevOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
 
 app.use(express.json());
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (!origin || allowedOrigins.has(origin) || (process.env.NODE_ENV !== "production" && isLocalDevOrigin(origin))) {
         return callback(null, true);
       }
 

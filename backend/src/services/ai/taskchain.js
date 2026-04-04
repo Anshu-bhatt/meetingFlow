@@ -3,6 +3,61 @@ import { cleanerPrompt, extractorPrompt, validatorPrompt } from "./prompt.js";
 
 const normalizeText = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const MAX_TRANSCRIPT_CHARS = Number(process.env.AI_MAX_TRANSCRIPT_CHARS || 6000);
+const SPEAKER_STOPWORDS = new Set([
+  "i",
+  "me",
+  "my",
+  "mine",
+  "we",
+  "us",
+  "our",
+  "ours",
+  "you",
+  "your",
+  "yours",
+  "they",
+  "them",
+  "their",
+  "where",
+  "when",
+  "what",
+  "why",
+  "how",
+  "this",
+  "that",
+  "there",
+  "here",
+  "team",
+  "everyone",
+]);
+
+const toDisplayName = (value) =>
+  (() => {
+    const normalized = normalizeText(value);
+    if (!normalized) return "";
+
+    if (/^[a-z]+\d+$/i.test(normalized)) {
+      return normalized.toLowerCase();
+    }
+
+    return normalized
+      .split(/\s+/)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+  })();
+
+const isValidSpeakerCandidate = (value) => {
+  const candidate = normalizeText(value);
+  if (!candidate) return false;
+  if (candidate.length < 2 || candidate.length > 60) return false;
+
+  const normalized = candidate.toLowerCase();
+  if (SPEAKER_STOPWORDS.has(normalized)) return false;
+
+  if (/^(speaker\s*\d+|participant\s*\d+)$/i.test(candidate)) return false;
+
+  return true;
+};
 
 const compactError = (error) =>
   normalizeText(error?.message || String(error || "")).slice(0, 220);
@@ -26,12 +81,40 @@ function extractSpeakersFromTranscript(transcript) {
     return [];
   }
 
-  // Find simple "Name:" speaker markers while still allowing uppercase names.
-  const speakerRegex = /^([A-Z][a-z]+|[A-Z]{2,})(?:\s+[A-Z][a-z]+|\s+[A-Z]{2,}){0,2}:/gm;
-  const matches = [...transcript.matchAll(speakerRegex)];
-  const speakers = [...new Set(matches.map((m) => normalizeText(m[1])))]
-    .filter(Boolean)
-    .slice(0, 20);
+  const speakers = [];
+  const speakerSet = new Set();
+  const addSpeaker = (raw) => {
+    const candidate = toDisplayName(raw);
+    if (!isValidSpeakerCandidate(candidate)) return;
+    const key = candidate.toLowerCase();
+    if (speakerSet.has(key)) return;
+    speakerSet.add(key);
+    speakers.push(candidate);
+  };
+
+  // Accept label formats like "Emp1:", "emp2:", "John:", "Team Lead:".
+  const speakerRegex = /^\s*([A-Za-z][A-Za-z0-9._-]*(?:\s+[A-Za-z][A-Za-z0-9._-]*){0,2})\s*:/gm;
+  let speakerMatch;
+  while ((speakerMatch = speakerRegex.exec(transcript)) !== null) {
+    addSpeaker(speakerMatch[1]);
+    if (speakers.length >= 20) break;
+  }
+
+  // Capture assignee-like names from sentence patterns.
+  const assignmentRegex = /\b([A-Za-z][A-Za-z0-9._-]*(?:\s+[A-Za-z][A-Za-z0-9._-]*)?)\s+(?:will|should|needs to|must|can)\b/gi;
+  let assignmentMatch;
+  while ((assignmentMatch = assignmentRegex.exec(transcript)) !== null) {
+    addSpeaker(assignmentMatch[1]);
+    if (speakers.length >= 20) break;
+  }
+
+  // Explicit support for ids such as emp1, emp2 from scripts.
+  const employeeIdRegex = /\b(emp\d+)\b/gi;
+  let employeeMatch;
+  while ((employeeMatch = employeeIdRegex.exec(transcript)) !== null) {
+    addSpeaker(employeeMatch[1]);
+    if (speakers.length >= 20) break;
+  }
 
   console.log("👥 Speakers detected:", speakers);
   return speakers;
@@ -151,6 +234,11 @@ const resolveAssignee = (task, speakers) => {
 
     const matchedFromAssignee = findSpeakerInText(rawAssignee, knownSpeakers);
     if (matchedFromAssignee) return matchedFromAssignee;
+
+    // Keep explicit assignee names even when transcripts lack speaker labels.
+    if (/^[A-Za-z][A-Za-z\s.'-]{1,60}$/.test(rawAssignee)) {
+      return toDisplayName(rawAssignee);
+    }
   }
 
   const assignedByMatch = findSpeakerInText(task?.assigned_by, knownSpeakers);
@@ -214,12 +302,12 @@ const extractSpeakerTurns = (transcript) => {
   const turns = [];
   if (typeof transcript !== "string") return turns;
 
-  const turnRegex = /(?:^|[\r\n]|[.!?]\s+)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s*:\s*([\s\S]*?)(?=(?:[\r\n]|[.!?]\s+)[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s*:|$)/g;
+  const turnRegex = /(?:^|[\r\n]|[.!?]\s+)([A-Za-z][A-Za-z0-9._-]*(?:\s+[A-Za-z][A-Za-z0-9._-]*){0,2})\s*:\s*([\s\S]*?)(?=(?:[\r\n]|[.!?]\s+)[A-Za-z][A-Za-z0-9._-]*(?:\s+[A-Za-z][A-Za-z0-9._-]*){0,2}\s*:|$)/g;
   let match;
 
   while ((match = turnRegex.exec(transcript)) !== null) {
     turns.push({
-      speaker: normalizeText(match[1]),
+      speaker: toDisplayName(match[1]),
       content: normalizeText(match[2]),
     });
   }
@@ -253,6 +341,34 @@ const inferAssigneeFromTranscript = (taskTitle, transcript, speakers) => {
   }
 
   return bestMatch.score >= 2 ? bestMatch.speaker : null;
+};
+
+const inferAssigneeFromSentencePatterns = (taskTitle, transcript) => {
+  const source = typeof transcript === "string" ? transcript : "";
+  if (!source || !taskTitle) return null;
+
+  const escapedTask = taskTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const windowRegex = new RegExp(`([^.!?\n]{0,220}${escapedTask}[^.!?\n]{0,220})`, "i");
+  const windowMatch = source.match(windowRegex);
+  const windowText = windowMatch?.[1] || source;
+
+  const patterns = [
+    /\b([A-Za-z][A-Za-z0-9._-]*(?:\s+[A-Za-z][A-Za-z0-9._-]*)?)\s+(?:will|should|needs to|must|can)\b/i,
+    /\b([A-Za-z][A-Za-z0-9._-]*(?:\s+[A-Za-z][A-Za-z0-9._-]*)?),\s*(?:please\s+)?(?:can you|could you|will you)\b/i,
+    /\bassign(?:ed)?\s+to\s+([A-Za-z][A-Za-z0-9._-]*(?:\s+[A-Za-z][A-Za-z0-9._-]*)?)\b/i,
+  ];
+
+  for (const pattern of patterns) {
+    const matched = windowText.match(pattern);
+    if (matched?.[1]) {
+      const candidate = toDisplayName(matched[1]);
+      if (isValidSpeakerCandidate(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return null;
 };
 
 const buildFallbackResult = (transcript, reason = "", speakers = []) => {
@@ -350,8 +466,13 @@ const runChainWithLlm = async (llm, transcript, speakers) => {
         return task;
       }
 
-      const inferred = inferAssigneeFromTranscript(task.title, cleanTranscript, speakers);
-      return inferred ? { ...task, assignee: inferred } : task;
+        const inferredFromTurns = inferAssigneeFromTranscript(task.title, cleanTranscript, speakers);
+        if (inferredFromTurns) {
+          return { ...task, assignee: inferredFromTurns };
+        }
+
+        const inferredFromSentence = inferAssigneeFromSentencePatterns(task.title, cleanTranscript);
+        return inferredFromSentence ? { ...task, assignee: inferredFromSentence } : task;
     });
 
     const highPriorityCount = normalizedTasks.filter((task) => task.priority === "High").length;

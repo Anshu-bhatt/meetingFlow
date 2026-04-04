@@ -6,7 +6,7 @@ const protectedRoutes = ["/dashboard", "/employee/dashboard"]
 const hasProtectedPrefix = (pathname: string) =>
   protectedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (publicRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {

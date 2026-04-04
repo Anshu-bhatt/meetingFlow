@@ -5,6 +5,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import multer from "multer";
+import { requireAuth } from "../middleware/auth.js";
 import { saveTranscriptMeeting } from "../services/meetingService.js";
 import { transcribeWithLocalWhisper } from "../services/transcription/localWhisperService.js";
 
@@ -65,30 +66,11 @@ export const uploadTranscribeFile = multer({
 
 const transcribeFileAtPath = async ({ filePath, originalName, title, userId }) => {
   const configuredChunkSeconds = Number(process.env.WHISPER_CHUNK_SECONDS || 600);
-  let whisperResult = null;
-
-  try {
-    whisperResult = await transcribeWithLocalWhisper({
-      filePath,
-      model: process.env.WHISPER_MODEL || "base",
-      chunkSeconds: Number.isFinite(configuredChunkSeconds) ? configuredChunkSeconds : 600,
-    });
-  } catch (error) {
-    console.warn("Local Whisper unavailable, using fallback transcript:", error);
-
-    whisperResult = {
-      text: [
-        `Fallback transcript for ${originalName}.`,
-        "John will review uploaded meeting notes by Friday.",
-        "Sarah should share the client update tomorrow.",
-      ].join(" "),
-      segments: [],
-      language: "en",
-      duration: null,
-      chunksProcessed: 0,
-      provider: "fallback",
-    };
-  }
+  const whisperResult = await transcribeWithLocalWhisper({
+    filePath,
+    model: process.env.WHISPER_MODEL || "base",
+    chunkSeconds: Number.isFinite(configuredChunkSeconds) ? configuredChunkSeconds : 600,
+  });
 
   const transcriptText = whisperResult.text;
 
@@ -188,7 +170,7 @@ export const handleTranscribeUploadThing = async (req, res) => {
   }
 };
 
-router.post("/", (req, res, next) => {
+router.post("/", requireAuth, (req, res, next) => {
   uploadTranscribeFile.single("file")(req, res, (err) => {
     if (!err) {
       return next();
@@ -199,6 +181,6 @@ router.post("/", (req, res, next) => {
     return res.status(statusCode).json({ error: message });
   });
 }, handleTranscribeUpload);
-router.post("/uploadthing", express.json(), handleTranscribeUploadThing);
+router.post("/uploadthing", requireAuth, express.json(), handleTranscribeUploadThing);
 
 export default router;

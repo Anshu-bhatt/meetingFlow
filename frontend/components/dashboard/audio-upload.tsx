@@ -2,6 +2,7 @@
 'use client'
 
 import { useRef, useState } from "react"
+import { getOrCreateWorkspaceId } from "@/lib/workspace-id"
 
 interface Props {
   onTranscript: (text: string) => void
@@ -26,11 +27,16 @@ export default function AudioUpload({ onTranscript }: Props) {
       const formData = new FormData()
       formData.append("file", file)
       formData.append("title", `Uploaded file - ${file.name}`)
+      const workspaceId = getOrCreateWorkspaceId()
 
       setStatus("transcribing")
 
       const response = await fetch(`${apiUrl}/api/transcribe`, {
         method: "POST",
+        headers: {
+          "x-workspace-id": workspaceId,
+        },
+        credentials: "include",
         body: formData,
       })
 
@@ -70,13 +76,13 @@ export default function AudioUpload({ onTranscript }: Props) {
     <div
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
-      onClick={() => !isUploading && status !== "transcribing" && inputRef.current?.click()}
+      onClick={() => !isUploading && inputRef.current?.click()}
       style={{
         border: "1.5px dashed var(--border)",
         borderRadius: "var(--border-radius-lg)",
         padding: "24px",
         textAlign: "center",
-        cursor: !isUploading && status !== "transcribing" ? "pointer" : "default",
+        cursor: !isUploading ? "pointer" : "default",
         color: "var(--muted-foreground)",
         fontSize: "14px",
         transition: "border-color .15s",

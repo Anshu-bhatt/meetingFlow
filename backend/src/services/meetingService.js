@@ -21,7 +21,8 @@ export const saveTranscriptMeeting = async ({ userId, title, transcript }) => {
   const payload = {
     title: title || "Uploaded meeting",
     transcript,
-    user_id: userId || null,
+    workspace_id: userId || "workspace_local_default",
+    uploaded_by: userId || null,
   };
 
   const { data, error } = await supabase

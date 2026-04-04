@@ -214,13 +214,54 @@ export const ensureSeedAuthUsers = async () => {
 
 
 export const saveMeeting = async (workspaceId, title, transcript, uploadedBy) => {
+  const normalizedTranscript = String(transcript || "").trim();
+
   const { data, error } = await supabase
     .from("meetings")
-    .insert([{ workspace_id: workspaceId, title, transcript, uploaded_by: uploadedBy }])
+    .insert([{ workspace_id: workspaceId, title, transcript: normalizedTranscript, uploaded_by: uploadedBy }])
     .select();
 
   if (error) throw error;
   return data?.[0];
+};
+
+export const getMeetingByWorkspaceAndTranscript = async (workspaceId, transcript) => {
+  const normalizedWorkspaceId = String(workspaceId || "").trim();
+  const normalizedTranscript = String(transcript || "").trim();
+
+  if (!normalizedWorkspaceId || !normalizedTranscript) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("meetings")
+    .select("*")
+    .eq("workspace_id", normalizedWorkspaceId)
+    .eq("transcript", normalizedTranscript)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) throw error;
+  if (data?.[0]) {
+    return data[0];
+  }
+
+  const normalizeForCompare = (value) =>
+    String(value || "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const { data: candidates, error: candidatesError } = await supabase
+    .from("meetings")
+    .select("*")
+    .eq("workspace_id", normalizedWorkspaceId)
+    .order("created_at", { ascending: false })
+    .limit(300);
+
+  if (candidatesError) throw candidatesError;
+
+  const target = normalizeForCompare(normalizedTranscript);
+  return (candidates || []).find((meeting) => normalizeForCompare(meeting.transcript) === target) || null;
 };
 
 export const getMeetings = async (workspaceId) => {
@@ -231,7 +272,20 @@ export const getMeetings = async (workspaceId) => {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data || [];
+
+  if ((data || []).length > 0 || process.env.NODE_ENV === "production") {
+    return data || [];
+  }
+
+  // Local/dev fallback: show recent meetings even if historical rows used a different workspace_id.
+  const { data: fallbackData, error: fallbackError } = await supabase
+    .from("meetings")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (fallbackError) throw fallbackError;
+  return fallbackData || [];
 };
 
 export const getMeetingById = async (meetingId) => {

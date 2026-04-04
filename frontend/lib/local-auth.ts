@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { getOrCreateWorkspaceId } from "@/lib/workspace-id"
 
 export const useLocalAuth = () => {
@@ -10,9 +10,15 @@ export const useLocalAuth = () => {
     setUserId(getOrCreateWorkspaceId())
   }, [])
 
-  return {
-    getToken: async (): Promise<string | null> => null,
-    isLoaded: userId !== null,
-    userId,
-  }
+  const getToken = useCallback(async (): Promise<string | null> => null, [])
+  const isLoaded = userId !== null
+
+  return useMemo(
+    () => ({
+      getToken,
+      isLoaded,
+      userId,
+    }),
+    [getToken, isLoaded, userId],
+  )
 }
