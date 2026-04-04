@@ -2,27 +2,26 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth, useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
+import { useLocalAuth } from "@/lib/local-auth"
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const { getToken } = useAuth()
-  const { user } = useUser()
+  const { getToken } = useLocalAuth()
   const [slackUserId, setSlackUserId] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [name, setName] = useState("")
 
   useEffect(() => {
-    // Prefill name from Clerk user data
-    if (user?.firstName || user?.lastName) {
-      setName([user.firstName, user.lastName].filter(Boolean).join(" "))
+    const localName = typeof window !== "undefined" ? window.localStorage.getItem("meetingflow.userName") : null
+    if (localName) {
+      setName(localName)
     }
-  }, [user])
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,17 +42,14 @@ export default function OnboardingPage() {
     try {
       const token = await getToken().catch(() => null)
 
-      if (!token) {
-        throw new Error("Authentication required")
-      }
-
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
       const response = await fetch(`${apiUrl}/api/auth/onboard`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           slackUserId: slackUserId.trim(),
         }),
