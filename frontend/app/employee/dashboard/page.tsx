@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, CheckSquare, Clock3, LogOut, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { StatsCards } from "@/components/dashboard/stats-cards"
+import { EmployeeAnalytics } from "@/components/employee/employee-analytics"
 
 type AuthUser = {
   login_id: string
@@ -17,6 +18,7 @@ type AuthUser = {
 export default function EmployeeDashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -43,6 +45,18 @@ export default function EmployeeDashboardPage() {
         }
 
         setUser(data.user)
+
+        try {
+          const tasksRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/tasks`, {
+            credentials: "include",
+          })
+          if (tasksRes.ok) {
+            const tasksData = await tasksRes.json()
+            setTasks(tasksData.tasks || [])
+          }
+        } catch (taskErr) {
+          console.error("Failed to fetch tasks", taskErr)
+        }
         } catch {
         router.replace("/sign-in")
       } finally {
@@ -97,46 +111,14 @@ export default function EmployeeDashboardPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="h-4 w-4 text-primary" />
-                Assigned work
-              </CardTitle>
-              <CardDescription>Tasks routed to your login ID</CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Employee assignments will sync from the meeting extraction flow.
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <CheckSquare className="h-4 w-4 text-primary" />
-                Execution
-              </CardTitle>
-              <CardDescription>Track progress against your deliverables</CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Update status as tasks move from pending to complete.
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Clock3 className="h-4 w-4 text-primary" />
-                Deadlines
-              </CardTitle>
-              <CardDescription>Keep your active due dates visible</CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Deadline reminders will appear here once task syncing is connected.
-            </CardContent>
-          </Card>
-        </div>
+        <StatsCards stats={{
+            total: tasks.length,
+            completed: tasks.filter(t => t.status === "completed").length,
+            pending: tasks.filter(t => t.status === "pending" || t.status === "in_progress").length,
+            overdue: tasks.filter(t => t.status !== "completed" && t.deadline && new Date(t.deadline) < new Date()).length
+        }} />
+        
+        <EmployeeAnalytics tasks={tasks} />
       </div>
     </main>
   )

@@ -14,9 +14,10 @@ import {
   deleteTask,
   addTeamMember,
   getTeamMembers,
-  deleteTeamMember,
   saveIntegration,
   getIntegration,
+  getAppUserByLoginId,
+  getTasksByAssignee,
 } from "../services/db.js";
 
 const router = express.Router();
@@ -216,6 +217,13 @@ router.get("/meetings/:meetingId/tasks", requireAuth, async (req, res) => {
 // Get all tasks in workspace (faster than loading tasks meeting-by-meeting)
 router.get("/tasks", requireAuth, async (req, res) => {
   try {
+    if (req.auth?.role === "employee") {
+      const user = await getAppUserByLoginId(req.auth.loginId);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      const tasks = await getTasksByAssignee(user.name);
+      return res.json({ tasks });
+    }
+
     const workspaceId = req.auth?.userId;
     const tasks = await getTasksByWorkspace(workspaceId);
     res.json({ tasks });

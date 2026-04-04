@@ -34,6 +34,12 @@ const buildLoginIdCandidates = (loginId) => {
   const candidates = [normalizedLoginId];
   const atIndex = normalizedLoginId.lastIndexOf("@");
 
+  if (atIndex <= 0) {
+    // Allow short login IDs from UI like manager1 / emp1.
+    candidates.push(`${normalizedLoginId}@company.com`);
+    candidates.push(`${normalizedLoginId}@gmail.com`);
+  }
+
   if (atIndex > 0) {
     const localPart = normalizedLoginId.slice(0, atIndex);
     const domainPart = normalizedLoginId.slice(atIndex);
@@ -182,30 +188,38 @@ export const ensureSeedAuthUsers = async () => {
 
   for (const user of DEFAULT_AUTH_USERS) {
     const loginId = String(user.loginId || "").trim().toLowerCase();
-    const passwordHash = hashPassword(user.password);
 
+    const { data: existing, error: existingError } = await supabase
+      .from(AUTH_TABLE)
+      .select("*")
+      .eq("login_id", loginId)
+      .single();
+
+    if (existingError && existingError.code !== "PGRST116") throw existingError;
+
+    if (existing) {
+      seededUsers.push(sanitizeAppUser(existing));
+      continue;
+    }
+
+    const passwordHash = hashPassword(user.password);
     const { data, error } = await supabase
       .from(AUTH_TABLE)
-      .upsert(
-        [
-          {
-            login_id: loginId,
-            name: user.name,
-            role: user.role,
-            password_hash: passwordHash,
-            session_token: null,
-            session_expires_at: null,
-            updated_at: new Date().toISOString(),
-          },
-        ],
-        { onConflict: "login_id" }
-      )
+      .insert([
+        {
+          login_id: loginId,
+          name: user.name,
+          role: user.role,
+          password_hash: passwordHash,
+          session_token: null,
+          session_expires_at: null,
+          updated_at: new Date().toISOString(),
+        },
+      ])
       .select();
 
     if (error) throw error;
-    if (data?.[0]) {
-      seededUsers.push(sanitizeAppUser(data[0]));
-    }
+    if (data?.[0]) seededUsers.push(sanitizeAppUser(data[0]));
   }
 
   return seededUsers;
@@ -344,6 +358,17 @@ export const getTasksByWorkspace = async (workspaceId) => {
     .from("tasks")
     .select("*")
     .in("meeting_id", meetingIds)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+};
+
+export const getTasksByAssignee = async (assigneeName) => {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .ilike("assignee_name", assigneeName)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
