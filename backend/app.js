@@ -14,7 +14,13 @@ dotenv.config({ path: "../.env" });
 
 const app = express();
 
-const defaultOrigins = ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"];
+const defaultOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+  "https://meeting-flow-frontend-96vw82eew-anshu-bhatts-projects.vercel.app"
+];
 const configuredOrigins = (process.env.FRONTEND_URL || "")
   .split(",")
   .map((origin) => origin.trim())
