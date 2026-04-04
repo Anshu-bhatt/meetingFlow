@@ -6,6 +6,9 @@ const rootDir = dirname(fileURLToPath(import.meta.url))
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: rootDir,
+  turbopack: {
+    root: rootDir,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
