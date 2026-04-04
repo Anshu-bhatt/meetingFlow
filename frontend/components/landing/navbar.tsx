@@ -1,54 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Zap } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-
-type AuthUser = {
-  login_id: string
-  name: string
-  role: string
-}
+import { useAuth } from "@/contexts/AuthContext"
 
 export function Navbar() {
   const router = useRouter()
-  const [user, setUser] = useState<AuthUser | null>(null)
-
-  useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/me`, {
-          credentials: "include",
-        })
-
-          if (!response.ok) {
-            setUser(null)
-            return
-          }
-
-          const data = await response.json().catch(() => ({} as { user?: AuthUser | null }))
-          setUser(data.user ?? null)
-        } catch {
-        setUser(null)
-      }
-    }
-
-    loadSession()
-  }, [])
+  const { user, logout } = useAuth()
 
   const handleSignOut = async () => {
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      })
-    } finally {
-      setUser(null)
-      router.push("/")
-      router.refresh()
-    }
+    await logout()
+    router.push("/")
+    router.refresh()
   }
 
   return (
