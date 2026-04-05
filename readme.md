@@ -5,8 +5,7 @@ It helps teams move from discussion to delivery with better ownership and faster
 
 ## Live Deployment
 
-Frontend on Vercel:
-https://meeting-flow-frontend-git-main-anshu-bhatts-projects.vercel.app/
+Frontend on Vercel: https://meeting-flow-frontend-43u18ienr-anshu-bhatts-projects.vercel.app/
 
 Backend on Render:
 Deploy from this repository using the configuration in render.yaml.
