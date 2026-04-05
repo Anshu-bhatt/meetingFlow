@@ -182,9 +182,3 @@ MeetFlow/
 - In production, FRONTEND_URL must match your deployed Vercel domain.
 - Never commit real secrets.
 - Rotate keys immediately if any key was exposed.
-
-## License
-
-This project is currently maintained as a private or internal build.
-Add a formal license before open-source distribution.
-'@ | Set-Content -Path "d:\development\workspace\MeetFlow\readme.md"
