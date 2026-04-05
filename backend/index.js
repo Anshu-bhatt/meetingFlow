@@ -27,11 +27,17 @@ const configuredOrigins = (process.env.FRONTEND_URL || "")
 	.filter(Boolean);
 const allowedOrigins = new Set([...defaultOrigins, ...configuredOrigins]);
 const isLocalDevOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+const isTrustedVercelOrigin = (origin) => /^https:\/\/meeting-flow-frontend[\w-]*\.vercel\.app$/i.test(origin);
 
 app.use(
 	cors({
 		origin: (origin, callback) => {
-			if (!origin || allowedOrigins.has(origin) || (process.env.NODE_ENV !== "production" && isLocalDevOrigin(origin))) {
+			if (
+				!origin ||
+				allowedOrigins.has(origin) ||
+				isTrustedVercelOrigin(origin) ||
+				(process.env.NODE_ENV !== "production" && isLocalDevOrigin(origin))
+			) {
 				return callback(null, true);
 			}
 
