@@ -40,9 +40,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     setError(null)
 
     try {
-      const configuredApiBase = String(process.env.NEXT_PUBLIC_API_URL || "").trim().replace(/\/$/, "")
-      const apiBase = configuredApiBase || "https://meetingflow-backend.onrender.com"
-      const response = await fetch(`${apiBase}/api/auth/${mode}`, {
+      const response = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
