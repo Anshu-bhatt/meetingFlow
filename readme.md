@@ -1,159 +1,190 @@
 # MeetFlow
 
-MeetFlow is an AI-powered meeting workflow app with a Next.js frontend and an Express backend.
-It helps teams extract structured tasks from meeting notes, manage those tasks, and integrate workflows with services like Slack.
+MeetFlow is an AI-powered meeting execution platform that turns transcripts into clear, trackable action items.
+It helps teams move from discussion to delivery with better ownership and faster follow-through.
 
-## Project Structure
+## Live Deployment
 
-```text
-MeetFlow/
-  backend/      # Express API (auth, AI extraction, task/meeting services)
-  frontend/     # Next.js app (landing, auth, dashboard)
-  package.json  # npm workspaces root
-```
+Frontend on Vercel:
+https://meeting-flow-frontend-git-main-anshu-bhatts-projects.vercel.app/
+
+Backend on Render:
+Deploy from this repository using the configuration in render.yaml.
+
+## Project Description
+
+Most teams lose momentum after meetings because tasks are not captured clearly, owners are not explicit, and follow-ups are inconsistent.
+MeetFlow solves this with a structured flow:
+
+1. Capture transcript or meeting notes.
+2. Extract tasks with AI.
+3. Assign owners and priorities.
+4. Save and track execution in one dashboard.
+
+## Project Impact
+
+MeetFlow improves team execution by:
+
+- Reducing action items lost in chats or personal notes.
+- Converting unstructured discussion into actionable tasks.
+- Increasing accountability through clear ownership.
+- Reducing repeated discussions in future meetings.
+- Improving post-meeting visibility across teams.
+
+## Core Features
+
+- AI task extraction from transcript text.
+- Structured task output with title, assignee, priority, and deadline.
+- Meeting and task persistence with Supabase.
+- Dashboard for reviewing and managing extracted tasks.
+- Authentication and protected routes for user access.
+- Integration-ready backend for communication and workflow extensions.
+
+## Product Workflow
+
+1. User pastes transcript text in the dashboard.
+2. Frontend sends request to backend extraction API.
+3. Backend processes transcript with AI and fallback logic.
+4. Structured tasks are returned to frontend.
+5. User reviews, edits, and saves tasks.
+6. Tasks are available for execution tracking.
 
 ## Tech Stack
 
-- Frontend: Next.js, React, TypeScript, Clerk, Tailwind CSS
-- Backend: Node.js, Express, Clerk SDK, LangChain + Groq, Supabase
-- Integrations: Slack webhook notifications
+Frontend:
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS
 
-## Prerequisites
+Backend:
+- Node.js
+- Express 5
+- LangChain-based extraction pipeline
+- Supabase
 
-Install these before starting:
+Deployment:
+- Vercel for frontend
+- Render for backend
 
-- Node.js 20+ (LTS recommended)
+## Quick Start
+
+### Prerequisites
+
+- Node.js 20+
 - npm 10+
-- Clerk account (publishable + secret keys)
-- Supabase project (URL + service role key)
-- Groq API key
-- Slack incoming webhook (optional but recommended)
 
-## Environment Setup
+### 1) Clone and Install
 
-### 1) Backend environment
+- git clone <your-repo-url>
+- cd MeetFlow
+- npm install
 
-Create `backend/.env`:
+### 2) Configure Environment
 
-```env
-PORT=5000
-FRONTEND_URL=http://localhost:3000
-CLERK_SECRET_KEY=your_clerk_secret_key
-GROQ_API_KEY=your_groq_api_key
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-SLACK_WEBHOOK_URL=your_slack_webhook_url
-```
+Backend env file:
+- Path: backend/.env
+- Reference template: backend/.env.example
 
-### 2) Frontend environment
+Frontend env file:
+- Path: frontend/.env.local
+- Required variable:
 
-Create `frontend/.env.local`:
-
-```env
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 NEXT_PUBLIC_API_URL=http://localhost:5000
-```
 
-## Install Dependencies
+### 3) Run Backend
 
-From the project root:
+- npm run dev --workspace backend
 
-```bash
-npm install
-```
+Backend default URL:
+http://localhost:5000
 
-This uses npm workspaces and installs dependencies for both `frontend` and `backend`.
+### 4) Run Frontend
 
-## Run the Project (Development)
+- npm run dev --workspace frontend
 
-Use two terminals.
+Frontend default URL:
+http://localhost:3000
 
-### Terminal 1: Start Backend API
+### 5) Validate Basic Flow
 
-```bash
-cd backend
-npm run dev
-```
+- Open frontend URL.
+- Sign in.
+- Go to dashboard.
+- Paste transcript.
+- Run extraction.
+- Save generated tasks.
 
-Backend runs on: `http://localhost:5000`
+## Deployment Guide
 
-### Terminal 2: Start Frontend
+For full deployment steps, see:
+DEPLOYMENT_GUIDE.md
 
-```bash
-cd frontend
-npm run dev
-```
+Quick deployment summary:
 
-Frontend runs on: `http://localhost:3000`
+1. Deploy backend to Render from backend root settings.
+2. Deploy frontend to Vercel from frontend root settings.
+3. Set frontend variable NEXT_PUBLIC_API_URL to your Render backend URL.
+4. Set backend variable FRONTEND_URL to your Vercel frontend domain.
+5. Redeploy backend after updating CORS origin.
 
-## First-Time Workflow
+## API Example
 
-1. Open `http://localhost:3000`.
-2. Sign up or sign in through Clerk.
-3. Navigate to the dashboard.
-4. Paste meeting notes/transcript in the AI input section.
-5. Trigger task extraction.
-6. Review extracted tasks and continue with task management flow.
+Primary extraction endpoint:
 
-## Core Service Flow
+POST /api/ai/extract-tasks
+Content-Type: application/json
 
-1. User authenticates in frontend via Clerk.
-2. Frontend calls backend API (`/api/ai/...`) using `NEXT_PUBLIC_API_URL`.
-3. Backend validates auth and request payload.
-4. AI service sends prompt to Groq via LangChain.
-5. Parsed tasks are returned and can be persisted via Supabase services.
-6. Optional notifications can be sent via Slack webhook.
+Example request:
 
-## Useful Commands
+{
+  "transcript": "John will finalize API docs by Friday. Sarah will review the schema tomorrow."
+}
 
-### Backend
+Example response shape:
 
-```bash
-npm run dev
-```
+{
+  "tasks": [
+    {
+      "title": "Finalize API docs",
+      "assignee": "John",
+      "priority": "high",
+      "deadline": null
+    }
+  ]
+}
 
-### Frontend
+## Repository Structure
 
-```bash
-npm run dev
-npm run build
-npm run start
-npm run lint
-```
+MeetFlow/
+- backend/
+  - src/
+    - controllers/
+    - middleware/
+    - routes/
+    - services/
+    - utils/
+  - index.js
+  - package.json
+- frontend/
+  - app/
+  - components/
+  - lib/
+  - package.json
+  - vercel.json
+- render.yaml
+- DEPLOYMENT_GUIDE.md
+- readme.md
 
-## Troubleshooting
+## Configuration Notes
 
-### Frontend cannot reach backend
-
-- Ensure backend is running on port `5000`.
-- Verify `NEXT_PUBLIC_API_URL` in `frontend/.env.local`.
-- Verify CORS origin with `FRONTEND_URL` in `backend/.env`.
-
-### Auth errors
-
-- Check Clerk keys:
-  - `CLERK_SECRET_KEY` in backend
-  - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in frontend
-
-### AI extraction fails
-
-- Confirm `GROQ_API_KEY` is set and valid.
-- Check backend logs for model/API errors.
-
-### Database issues
-
-- Confirm `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
-- Validate table schema and permissions in Supabase.
-
-## Production Notes
-
-Before deploying:
-
-- Replace localhost URLs with production domains.
-- Rotate all secrets and store them in your hosting platform secret manager.
-- Set strict CORS origin(s).
-- Enable monitoring/logging for backend API and frontend runtime.
+- In production, NEXT_PUBLIC_API_URL must point to your Render backend URL.
+- In production, FRONTEND_URL must match your deployed Vercel domain.
+- Never commit real secrets.
+- Rotate keys immediately if any key was exposed.
 
 ## License
 
-No explicit license is currently defined in this repository. Add a `LICENSE` file before public distribution.
+This project is currently maintained as a private or internal build.
+Add a formal license before open-source distribution.
+'@ | Set-Content -Path "d:\development\workspace\MeetFlow\readme.md"
