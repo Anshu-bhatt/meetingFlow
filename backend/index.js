@@ -14,7 +14,13 @@ dotenv.config({ path: "../.env" });
 
 const app = express();
 
-const defaultOrigins = ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"];
+const defaultOrigins = [
+	"http://localhost:3000",
+	"http://localhost:3001",
+	"http://127.0.0.1:3000",
+	"http://127.0.0.1:3001",
+	"https://meeting-flow-frontend-git-main-anshu-bhatts-projects.vercel.app",
+];
 const configuredOrigins = (process.env.FRONTEND_URL || "")
 	.split(",")
 	.map((origin) => origin.trim())
@@ -32,6 +38,8 @@ app.use(
 			return callback(new Error(`CORS blocked for origin: ${origin}`));
 		},
 		credentials: true,
+		methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
 	})
 );
 app.use(express.json());
