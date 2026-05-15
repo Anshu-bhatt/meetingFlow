@@ -63,12 +63,15 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
 	try {
-		await ensureSeedAuthUsers();
+		await ensureSeedAuthUsers().catch((error) => {
+			console.warn("Warning: Failed to seed auth users:", error.message);
+			// Don't crash, server can still run
+		});
 		app.listen(PORT, () => {
 			console.log(`Server running on port ${PORT}`);
 		});
 	} catch (error) {
-		console.error("Failed to seed auth users:", error.message);
+		console.error("Failed to start server:", error.message);
 		process.exit(1);
 	}
 };
